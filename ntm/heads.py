@@ -14,3 +14,20 @@ class Head(object):
         self.shift = shift
         self.gamma = gamma
         self.name = name
+
+
+class ReadHead(Head):
+    """
+    docstring for ReadHead
+    """
+    def __init__(self):
+        super(ReadHead, self).__init__()
+
+
+class WriteHead(Head):
+    """
+    docstring for WriteHead
+    """
+    def __init__(self):
+        super(WriteHead, self).__init__()
+        
