@@ -29,6 +29,8 @@ class LSTMController(Controller, LSTMLayer):
     """
     docstring for LSTMController
     See: https://github.com/Lasagne/Lasagne/pull/294#issuecomment-112104602
+    backwards, learn_init, gradient_steps are not used in the controller but
+    are properties of the NTM
     """
     def __init__(self, incoming, heads, num_units,
                  ingate=Gate(),
@@ -54,7 +56,7 @@ class LSTMController(Controller, LSTMLayer):
             gradient_steps=gradient_steps, grad_clipping=grad_clipping, unroll_scan=unroll_scan,
             precompute_input=precompute_input, mask_input=mask_input, **kwargs)
 
-    def step(input, reads, cell_previous, hid_previous, W_hid_stacked,
+    def step(self, input, reads, hid_previous, cell_previous, W_hid_stacked,
                  W_cell_to_ingate, W_cell_to_forgetgate,
                  W_cell_to_outgate, W_in_stacked, b_stacked):
 
@@ -99,7 +101,7 @@ class LSTMController(Controller, LSTMLayer):
 
         # Compute new hidden unit activation
         hid = outgate * self.nonlinearity(cell)
-        return [cell, hid]
+        return [hid, cell]
 
 
 # For the controller, create a step function that takes input and hidden states (stateS
