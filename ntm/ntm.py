@@ -35,12 +35,13 @@ class NTM(Layer):
             #   - Additional requirements for the controller (e.g. c_tm1 for LSTM)
             #   - M_0
             #   - h_0
-            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
-            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
+            #   - W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
+            #   - W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
             #   - Controller parameters (e.g. W & b for Dense)
             #   - Additional initial req. for the controller (e.g. c_0 for LSTM)
             num_write_heads = len(filter(lambda head: isinstance(head, WriteHead), self.heads))
             num_read_heads = len(filter(lambda head: isinstance(head, ReadHead), self.heads))
+            num_heads = num_write_heads + num_read_heads
             outputs_t = []
 
             # Update the memory (using w_tm1 of the writing heads & M_tm1)
@@ -55,17 +56,22 @@ class NTM(Layer):
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
             read_vectors = []
-            for i in range(num_write_heads, num_write_heads + num_read_heads):
+            for i in range(num_write_heads, num_heads):
                 read_vectors.append(T.dot(params[i], M_t))
             r_t = T.concatenate(read_vectors)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
-            ctrl_tm1 = 
-            h_t, ctrl_t = self.controller.step(x_t, r_t, )
+            if self.controller.outputs_info is None or not self.controller.outputs_info:
+                ctrl_tm1 = []
+            else:
+                num_ctrl_req = len(self.controller.outputs_info) - 1
+                ctrl_tm1 = [h_tm1] + params[num_heads:num_heads + num_ctrl_req]
+            h_t, ctrl_t = self.controller.step(x_t, r_t, *ctrl_tm1, *self.controller.non_sequences)
             outputs_t.append(h_t)
 
             # Update the weights (using h_t, M_t & w_tm1)
-
+            for i in range(num_heads):
+                outputs_t.append(helper.get_output(self.heads[i], [h_t, M_t, params[i]]))
 
             outputs_t += ctrl_t
 
@@ -74,11 +80,11 @@ class NTM(Layer):
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
-            outputs_info=self.controller.outputs_info
-            go_backwards=self.backwards,
-            truncate_gradients=self.gradient_steps,
+            outputs_info=self.controller.outputs_info,
             non_sequences=self.controller.non_sequences,
             strict=True)
+
+        return hids[1]
 
 
 if __name__ == '__main__':

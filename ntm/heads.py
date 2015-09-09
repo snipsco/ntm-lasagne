@@ -98,6 +98,9 @@ class Head(MergeLayer):
 
         return w
 
+    def __lt__(self, head):
+        return self.__class__ < head.__class__
+
 
 class WriteHead(Head):
     """
