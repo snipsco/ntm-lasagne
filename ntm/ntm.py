@@ -14,46 +14,62 @@ class NTM(Layer):
     """
     def __init__(self, incoming,
                  heads,
-                 memory_shape
-                 memory=lasagne.init.Constant(0.),
+                 memory_shape,
+                 memory_init=lasagne.init.Constant(0.),
                  controller=Controller(),
-                 backwards=False,
-                 gradient_steps=-1,
                  **kwargs):
         super(NTM, self).__init__(incoming, **kwargs)
 
-        self.memory_shape = memory_shape
-        self.memory = memory
         self.heads = heads
         self.controller = controller
-        self.backwards = backwards
-        self.gradient_steps = gradient_steps
-        self.read_heads = [head for head in heads if isinstance(head, ReadHead)]
-        self.write_heads = [head for head in heads if isinstance(head, WriteHead)]
-
-        # self.erase = theano.function([w, e], [],
-        #     updates=[self.memory, self.memory * (1 - T.outer(w, e))])
-        # self.add = theano.function([w, a], [],
-        #     updates=[self.memory, self.memory + T.outer(w, a)])
 
     def get_output_shape_for(self, input_shape):
         return self.controller.get_output_shape_for(input_shape)
 
     def get_output_for(self, input, **kwargs):
 
-        def step(x_t, M_t, h_tm1, c_tm1, *w_tm1):
-            # Get the read weights (using w_tm1 or read, M_t)
-            # reads = ...
-            # Apply the controller (using input, reads, h_tm1, c_tm1)
-            # h_t, c_t = ...
-            # Apply the heads / Update the weights (using h_t, M_t, w_tm1)
-            # w_t = ...
-            # Update the memory (using M_t, w_t of write)
-            # M_tp1 = ...
-            # Get the output (using h_t)
-            # y_t = ...
-            # Return [y_t, M_tp1, h_t, c_t, w_t]
-            pass
+        def step(x_t, M_tm1, h_tm1, *params):
+            # In the list params there are, in that order
+            #   - w_tm1 for all the writing heads
+            #   - w_tm1 for all the reading heads
+            #   - Additional requirements for the controller (e.g. c_tm1 for LSTM)
+            #   - M_0
+            #   - h_0
+            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
+            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
+            #   - Controller parameters (e.g. W & b for Dense)
+            #   - Additional initial req. for the controller (e.g. c_0 for LSTM)
+            num_write_heads = len(filter(lambda head: isinstance(head, WriteHead), self.heads))
+            num_read_heads = len(filter(lambda head: isinstance(head, ReadHead), self.heads))
+            outputs_t = []
+
+            # Update the memory (using w_tm1 of the writing heads & M_tm1)
+            M_t = M_tm1
+            # Erase
+            for i in range(num_write_heads):
+                M_t *= 1. - T.outer(params[i], helper.get_output(self.heads[i].erase, h_tm1))
+            # Add
+            for i in range(num_write_heads):
+                M_t += T.outer(params[i], helper.get_output(self.heads[i].add, h_tm1))
+            outputs_t.append(M_t)
+
+            # Get the read vector (using w_tm1 of the reading heads & M_t)
+            read_vectors = []
+            for i in range(num_write_heads, num_write_heads + num_read_heads):
+                read_vectors.append(T.dot(params[i], M_t))
+            r_t = T.concatenate(read_vectors)
+
+            # Apply the controller (using x_t, r_t & requirements for the controller)
+            ctrl_tm1 = 
+            h_t, ctrl_t = self.controller.step(x_t, r_t, )
+            outputs_t.append(h_t)
+
+            # Update the weights (using h_t, M_t & w_tm1)
+
+
+            outputs_t += ctrl_t
+
+            return outputs_t
 
         hids, _ = theano.scan(
             fn=step,
