@@ -4,20 +4,20 @@ import numpy as np
 
 from lasagne.layers import Layer, InputLayer
 import lasagne.init
-import lasagne.layer.helper as helper
-from heads import ReadHead, WriteHead, HeadLayer
+import lasagne.layers.helper as helper
+from heads import ReadHead, WriteHead
 
 
-class NTM(Layer):
+class NTMLayer(Layer):
     """
-    docstring for NTM
+    docstring for NTMLayer
     """
     def __init__(self, incoming,
                  memory,
                  controller,
                  heads,
                  **kwargs):
-        super(NTM, self).__init__(incoming, **kwargs)
+        super(NTMLayer, self).__init__(incoming, **kwargs)
 
         # Populate the HeadLayers with memory & previous layers
         self.memory = memory
@@ -49,10 +49,10 @@ class NTM(Layer):
             M_t = M_tm1
             # Erase
             for i in range(num_write_heads):
-                M_t *= 1. - T.outer(params[i], helper.get_output(self.heads[i].erase, h_tm1))
+                M_t *= 1. - T.outer(params[i], self.heads[i].erase.get_output_for(h_tm1))
             # Add
             for i in range(num_write_heads):
-                M_t += T.outer(params[i], helper.get_output(self.heads[i].add, h_tm1))
+                M_t += T.outer(params[i], self.heads[i].add.get_output_for(h_tm1))
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
@@ -66,24 +66,26 @@ class NTM(Layer):
                 ctrl_tm1 = []
             else:
                 num_ctrl_req = len(self.controller.outputs_info) - 1
-                ctrl_tm1 = [h_tm1] + params[num_heads:num_heads + num_ctrl_req]
-            h_t, ctrl_t = self.controller.step(x_t, r_t, *ctrl_tm1, *self.controller.non_sequences)
-            outputs_t.append(h_t)
+                ctrl_tm1 = [h_tm1] + list(params[num_heads:num_heads + num_ctrl_req])
+            ctrl_t = self.controller.step(x_t, r_t, *(ctrl_tm1 + self.controller.non_sequences))
+            outputs_t.append(ctrl_t[0])
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
-                outputs_t.append(helper.get_output(self.heads[i], [h_t, M_t, params[i]]))
+                outputs_t.append(self.heads[i].get_output_for([ctrl_t[0], M_t, params[i]]))
 
-            outputs_t += ctrl_t
+            outputs_t += ctrl_t[1:]
 
             return outputs_t
 
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
-            outputs_info=[self.memory.memory_init, ],
-            non_sequences=self.controller.non_sequences,
-            strict=True)
+            outputs_info=([self.memory.memory_init, self.controller.hid_init]
+                + [head.weights_init for head in self.heads]
+                + self.controller.outputs_info[1:]))#,
+            # non_sequences=self.controller.non_sequences + ,
+            # strict=True)
 
         return hids[1]
 

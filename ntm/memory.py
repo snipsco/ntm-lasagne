@@ -3,6 +3,7 @@ import theano.tensor as T
 import numpy as np
 
 from lasagne.layers import InputLayer
+import lasagne.init
 
 
 class Memory(InputLayer):

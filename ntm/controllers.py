@@ -8,12 +8,26 @@ import lasagne.nonlinearities
 import lasagne.init
 
 
-class Controller(object):
+class Controller(Layer):
     """
     docstring for Controller
     """
-    def __init__(self, num_reads,  **kwargs):
+    def __init__(self, incoming, num_units, num_reads, hid_init=lasagne.init.Constant(0.),
+                 learn_init=False, **kwargs):
+        Layer.__init__(self, incoming, **kwargs)
+        self.num_units = num_units
         self.num_reads = num_reads
+        if isinstance(hid_init, T.TensorVariable):
+            if hid_init.ndim != 2:
+                raise ValueError(
+                    "When hid_init is provided as a TensorVariable, it should "
+                    "have 2 dimensions and have shape (num_batch, num_units)")
+            self.hid_init = hid_init
+        else:
+            self.hid_init = self.add_param(
+                hid_init, (1, num_units), name="hid_init",
+                trainable=learn_init, regularizable=False)
+        self.learn_init = learn_init
 
     def get_output_for(self, input, **kwargs):
         """
@@ -65,10 +79,11 @@ class LSTMController(Controller, LSTMLayer):
                  learn_init=False,
                  peepholes=True,
                  **kwargs):
-        Controller.__init__(self, num_reads, **kwargs)
+        Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
+            learn_init=learn_init, **kwargs)
         LSTMLayer.__init__(self, incoming, num_units, ingate=ingate, forgetgate=forgetgate,
             cell=cell, outgate=outgate, nonlinearity=nonlinearity, cell_init=cell_init,
-            hid_init=hid_init, learn_init=learn_init, peepholes=peepholes, **kwargs)
+            hid_init=self.hid_init, learn_init=self.learn_init, peepholes=peepholes, **kwargs)
 
         self.W_reads_to_ingate = self.add_param(W_reads_to_ingate, (num_reads, num_units), name='W_reads_to_ingate')
         self.b_reads_to_ingate = self.add_param(b_reads_to_ingate, (num_units,), name='b_reads_to_ingate')
@@ -160,7 +175,7 @@ class LSTMController(Controller, LSTMLayer):
         # Stack reads bias vectors
         b_reads_stacked = T.concatenate(
             [self.b_reads_to_ingate, self.b_reads_to_forgetgate,
-             self.b_reads_to_outgate, self.b_reads_to_cell], axis=1)
+             self.b_reads_to_outgate, self.b_reads_to_cell], axis=0)
         
         non_seqs = [W_hid_stacked]
         if self.peepholes:
