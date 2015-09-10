@@ -14,14 +14,13 @@ class NTM(Layer):
     """
     def __init__(self, incoming,
                  heads,
-                 memory_shape,
-                 memory_init=lasagne.init.Constant(0.),
-                 controller=Controller(),
+                 memory,
+                 controller,
                  **kwargs):
         super(NTM, self).__init__(incoming, **kwargs)
 
         # Populate the HeadLayers with memory & previous layers
-
+        self.memory = memory
         self.heads = heads
         self.controller = controller
 
@@ -37,8 +36,8 @@ class NTM(Layer):
             #   - Additional requirements for the controller (e.g. c_tm1 for LSTM)
             #   - M_0
             #   - h_0
-            #   - W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
-            #   - W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
+            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
+            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
             #   - Controller parameters (e.g. W & b for Dense)
             #   - Additional initial req. for the controller (e.g. c_0 for LSTM)
             num_write_heads = len(filter(lambda head: isinstance(head, WriteHead), self.heads))
