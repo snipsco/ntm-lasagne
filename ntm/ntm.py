@@ -13,16 +13,16 @@ class NTM(Layer):
     docstring for NTM
     """
     def __init__(self, incoming,
-                 heads,
                  memory,
                  controller,
+                 heads,
                  **kwargs):
         super(NTM, self).__init__(incoming, **kwargs)
 
         # Populate the HeadLayers with memory & previous layers
         self.memory = memory
-        self.heads = heads
         self.controller = controller
+        self.heads = heads
 
     def get_output_shape_for(self, input_shape):
         return self.controller.get_output_shape_for(input_shape)
@@ -81,7 +81,7 @@ class NTM(Layer):
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
-            outputs_info=self.controller.outputs_info,
+            outputs_info=[self.memory.memory_init, ],
             non_sequences=self.controller.non_sequences,
             strict=True)
 

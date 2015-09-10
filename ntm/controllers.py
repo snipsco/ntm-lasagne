@@ -12,7 +12,7 @@ class Controller(object):
     """
     docstring for Controller
     """
-    def __init__(self, num_reads, **kwargs):
+    def __init__(self, num_reads,  **kwargs):
         self.num_reads = num_reads
 
     def get_output_for(self, input, **kwargs):
@@ -46,7 +46,7 @@ class LSTMController(Controller, LSTMLayer):
     backwards, learn_init, gradient_steps are not used in the controller but
     are properties of the NTM
     """
-    def __init__(self, incomings, num_units, num_reads,
+    def __init__(self, incoming, num_units, num_reads,
                  ingate=Gate(),
                  forgetgate=Gate(),
                  cell=Gate(W_cell=None, nonlinearity=lasagne.nonlinearities.tanh),
@@ -66,7 +66,7 @@ class LSTMController(Controller, LSTMLayer):
                  peepholes=True,
                  **kwargs):
         Controller.__init__(self, num_reads, **kwargs)
-        LSTMLayer.__init__(self, incomings[0], num_units, ingate=ingate, forgetgate=forgetgate,
+        LSTMLayer.__init__(self, incoming, num_units, ingate=ingate, forgetgate=forgetgate,
             cell=cell, outgate=outgate, nonlinearity=nonlinearity, cell_init=cell_init,
             hid_init=hid_init, learn_init=learn_init, peepholes=peepholes, **kwargs)
 
