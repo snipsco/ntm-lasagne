@@ -25,15 +25,19 @@ class Controller(object):
             'a get_output_for method. Did you try to call '
             'get_output from the controller?')
 
-    def step(self, input_and_reads, **kwargs):
+    def step(self, input, reads, *args, **kwargs):
         """
         Step function for the controller
         """
         raise NotImplementedError
 
-    def non_sequences(self, **kwargs):
+    @property
+    def non_sequences(self):
         raise NotImplementedError
 
+    @property
+    def outputs_info(self):
+        raise NotImplementedError
 
 class LSTMController(Controller, LSTMLayer):
     """
@@ -125,6 +129,49 @@ class LSTMController(Controller, LSTMLayer):
         # Compute new hidden unit activation
         hid = outgate * self.nonlinearity(cell)
         return [hid, cell]
+
+    @property
+    def outputs_info(self):
+        return [self.hid_init, self.cell_init]
+
+    @property
+    def non_sequences(self):
+        # Stack input weight matrices into a (num_inputs, 4*num_units)
+        # matrix, which speeds up computation
+        W_in_stacked = T.concatenate(
+            [self.W_in_to_ingate, self.W_in_to_forgetgate,
+             self.W_in_to_cell, self.W_in_to_outgate], axis=1)
+
+        # Same for hidden weight matrices
+        W_hid_stacked = T.concatenate(
+            [self.W_hid_to_ingate, self.W_hid_to_forgetgate,
+             self.W_hid_to_cell, self.W_hid_to_outgate], axis=1)
+
+        # Stack biases into a (4*num_units) vector
+        b_stacked = T.concatenate(
+            [self.b_ingate, self.b_forgetgate,
+             self.b_cell, self.b_outgate], axis=0)
+
+        # Stack reads weight matrices
+        W_reads_stacked = T.concatenate(
+            [self.W_reads_to_ingate, self.W_reads_to_forgetgate,
+             self.W_reads_to_cell, self.W_reads_to_outgate], axis=1)
+
+        # Stack reads bias vectors
+        b_reads_stacked = T.concatenate(
+            [self.b_reads_to_ingate, self.b_reads_to_forgetgate,
+             self.b_reads_to_outgate, self.b_reads_to_cell], axis=1)
+        
+        non_seqs = [W_hid_stacked]
+        if self.peepholes:
+            non_seqs += [self.W_cell_to_ingate,
+                         self.W_cell_to_forgetgate,
+                         self.W_cell_to_outgate]
+        else:
+            non_seqs += [(), (), ()]
+        non_seqs += [W_in_stacked, b_stacked, W_reads_stacked, b_reads_stacked]
+
+        return non_seqs
 
 
 # For the controller, create a step function that takes input and hidden states (stateS
