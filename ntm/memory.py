@@ -17,4 +17,4 @@ class Memory(InputLayer):
         super(Memory, self).__init__(shape, **kwargs)
         self.memory_init = self.add_param(
             memory_init, shape,
-            name=self.name, trainable=learn_init, regularizable=False)
+            name='memory_init', trainable=learn_init, regularizable=False)

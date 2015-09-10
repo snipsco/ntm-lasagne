@@ -22,10 +22,20 @@ class NTMLayer(Layer):
         # Populate the HeadLayers with memory & previous layers
         self.memory = memory
         self.controller = controller
+        # TODO: Sort the heads to have WriteHeads > ReadHeads
         self.heads = heads
 
     def get_output_shape_for(self, input_shape):
         return self.controller.get_output_shape_for(input_shape)
+
+    def get_params(self, **tags):
+        params = super(NTMLayer, self).get_params(**tags)
+        params += self.controller.get_params(**tags)
+        params += self.memory.get_params(**tags)
+        for head in self.heads:
+            params += head.get_params(**tags)
+
+        return params
 
     def get_output_for(self, input, **kwargs):
 

@@ -73,7 +73,7 @@ class Head(MergeLayer):
 
         self.weights_init = self.add_param(
             weights_init, (1,) + self.memory_size[1:],
-            name=self.basename + '.weights_init', trainable=learn_init, regularizable=False)
+            name='weights_init', trainable=learn_init, regularizable=False)
 
 
     def get_output_for(self, inputs, **kwargs):
@@ -100,6 +100,16 @@ class Head(MergeLayer):
         w /= T.sum(w) + 1e-9
 
         return w
+
+    def get_params(self, **tags):
+        params = super(Head, self).get_params(**tags)
+        params += self.key.get_params(**tags)
+        params += self.beta.get_params(**tags)
+        params += self.gate.get_params(**tags)
+        params += self.shift.get_params(**tags)
+        params += self.gamma.get_params(**tags)
+
+        return params
 
 
 class WriteHead(Head):
@@ -142,6 +152,13 @@ class WriteHead(Head):
             W=W_hid_to_add, b=b_hid_to_add, nonlinearity=None,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
+
+    def get_params(self, **tags):
+        params = super(WriteHead, self).get_params(**tags)
+        params += self.erase.get_params(**tags)
+        params += self.add.get_params(**tags)
+
+        return params
 
 
 class ReadHead(Head):

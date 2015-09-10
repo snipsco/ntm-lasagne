@@ -7,6 +7,8 @@ from lasagne.layers.recurrent import Gate, LSTMLayer
 import lasagne.nonlinearities
 import lasagne.init
 
+from collections import OrderedDict
+
 
 class Controller(Layer):
     """
@@ -14,7 +16,6 @@ class Controller(Layer):
     """
     def __init__(self, incoming, num_units, num_reads, hid_init=lasagne.init.Constant(0.),
                  learn_init=False, **kwargs):
-        Layer.__init__(self, incoming, **kwargs)
         self.num_units = num_units
         self.num_reads = num_reads
         if isinstance(hid_init, T.TensorVariable):
@@ -79,11 +80,11 @@ class LSTMController(Controller, LSTMLayer):
                  learn_init=False,
                  peepholes=True,
                  **kwargs):
-        Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
-            learn_init=learn_init, **kwargs)
         LSTMLayer.__init__(self, incoming, num_units, ingate=ingate, forgetgate=forgetgate,
             cell=cell, outgate=outgate, nonlinearity=nonlinearity, cell_init=cell_init,
-            hid_init=self.hid_init, learn_init=self.learn_init, peepholes=peepholes, **kwargs)
+            hid_init=hid_init, learn_init=learn_init, peepholes=peepholes, **kwargs)
+        Controller.__init__(self, incoming, num_units, num_reads, hid_init=self.hid_init,
+            learn_init=self.learn_init, **kwargs)
 
         self.W_reads_to_ingate = self.add_param(W_reads_to_ingate, (num_reads, num_units), name='W_reads_to_ingate')
         self.b_reads_to_ingate = self.add_param(b_reads_to_ingate, (num_units,), name='b_reads_to_ingate')
@@ -96,6 +97,7 @@ class LSTMController(Controller, LSTMLayer):
 
         self.W_reads_to_cell = self.add_param(W_reads_to_cell, (num_reads, num_units), name='W_reads_to_cell')
         self.b_reads_to_cell = self.add_param(b_reads_to_cell, (num_units,), name='b_reads_to_cell')
+        print self.params
 
     def step(self, input, reads, hid_previous, cell_previous, W_hid_stacked,
                  W_cell_to_ingate, W_cell_to_forgetgate,
@@ -196,15 +198,20 @@ class DenseController(Controller, DenseLayer):
     def __init__(self, incoming, num_units, num_reads,
                  W=lasagne.init.GlorotUniform(),
                  b=lasagne.init.Constant(0.),
+                 W_reads_to_hid=lasagne.init.GlorotUniform(),
+                 b_reads_to_hid=lasagne.init.Constant(0.),
                  nonlinearity=lasagne.nonlinearities.rectify,
                  hid_init=lasagne.init.Constant(0.),
                  learn_init=False,
                  **kwargs):
-        Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
-            learn_init=learn_init, **kwargs)
         DenseLayer.__init__(self, incoming, num_units, W=W,
                  b=b, nonlinearity=nonlinearity,
                  **kwargs)
+        Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
+            learn_init=learn_init, **kwargs)
+
+        self.add_param(W_reads_to_hid, (num_reads, num_units), name='W_reads_to_hid')
+        self.add_param(b_reads_to_hid, (num_units,), name='b_reads_to_hid')
 
     def step(self, input, reads, W, b):
         if input.ndim > 2:
