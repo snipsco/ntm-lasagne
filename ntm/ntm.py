@@ -88,12 +88,15 @@ class NTMLayer(Layer):
                     head.W_hid_to_add, head.b_hid_to_add]
             non_seqs += self.controller.get_params()
 
+        outs_info = [self.memory.memory_init, self.controller.hid_init]
+        outs_info += [head.weights_init for head in self.heads]
+        if self.controller.outputs_info is not None:
+            outs_info += self.controller.outputs_info[1:]
+
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
-            outputs_info=([self.memory.memory_init, self.controller.hid_init]
-                + [head.weights_init for head in self.heads]
-                + self.controller.outputs_info[1:]),
+            outputs_info=outs_info,
             non_sequences=non_seqs,
             strict=True)
 

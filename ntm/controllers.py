@@ -189,6 +189,42 @@ class LSTMController(Controller, LSTMLayer):
         return non_seqs
 
 
+class DenseController(Controller, DenseLayer):
+    """
+    docstring for DenseController$
+    """
+    def __init__(self, incoming, num_units, num_reads,
+                 W=lasagne.init.GlorotUniform(),
+                 b=lasagne.init.Constant(0.),
+                 nonlinearity=lasagne.nonlinearities.rectify,
+                 hid_init=lasagne.init.Constant(0.),
+                 learn_init=False,
+                 **kwargs):
+        Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
+            learn_init=learn_init, **kwargs)
+        DenseLayer.__init__(self, incoming, num_units, W=W,
+                 b=b, nonlinearity=nonlinearity,
+                 **kwargs)
+
+    def step(self, input, reads, W, b):
+        if input.ndim > 2:
+            # if the input has more than two dimensions, flatten it into a
+            # batch of feature vectors.
+            input = input.flatten(2)
+
+        activation = T.dot(input, W)
+        if b is not None:
+            activation = activation + b.dimshuffle('x', 0)
+        return [self.nonlinearity(activation)]
+
+    @property
+    def non_sequences(self):
+        return [self.W, self.b]
+
+    @property
+    def outputs_info(self):
+        return None
+
 # For the controller, create a step function that takes input and hidden states (stateS
 # because of LSTM that outputs the hidden state and the cell state) and returns the 
 # output and hidden states
