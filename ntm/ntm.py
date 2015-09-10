@@ -2,10 +2,10 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-from lasagne.layers import Layer
+from lasagne.layers import Layer, InputLayer
 import lasagne.init
 import lasagne.layer.helper as helper
-from heads import ReadHead, WriteHead
+from heads import ReadHead, WriteHead, HeadLayer
 
 
 class NTM(Layer):
@@ -19,6 +19,8 @@ class NTM(Layer):
                  controller=Controller(),
                  **kwargs):
         super(NTM, self).__init__(incoming, **kwargs)
+
+        # Populate the HeadLayers with memory & previous layers
 
         self.heads = heads
         self.controller = controller

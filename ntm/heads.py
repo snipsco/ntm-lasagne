@@ -28,6 +28,7 @@ class HeadLayer(MergeLayer):
                  weights_init=lasagne.init.GlorotUniform(),
                  learn_init=True,
                  **kwargs):
+        super(Head, self).__init__(incomings, **kwargs)
 
         self.ctrl_layer, self.memory_layer, _ = incomings
         self.memory_size = lasagne.helper.get_output_shape(self.memory_layer)
@@ -37,14 +38,17 @@ class HeadLayer(MergeLayer):
         self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=None,
             name=basename + '.key')
+        self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
         self.beta = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=None,
             name=basename + '.beta')
+        self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
         self.gate = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=None,
             name=basename + '.gate')
+        self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
         if len(shifts) != 2:
             raise ValueError('`shifts` must be of length 2 (`%s`.shifts ' +
@@ -57,19 +61,20 @@ class HeadLayer(MergeLayer):
         self.shift = DenseLayer(self.ctrl_layer, num_units=num_shifts,
             W=W_hid_to_shift, b_hid_to_shift, nonlinearity=None,
             name=basename + '.shift')
+        self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
         self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=None,
             name=basename + '.gamma')
+        self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
         self.weights_init = self.add_param(
             weights_init, (1,) + self.memory_size[1:],
             name=basename + '.weights_init', trainable=learn_init, regularizable=False)
 
-        super(Head, self).__init__(incomings, **kwargs)
 
     def get_output_for(self, inputs, **kwargs):
-        h_t, w_tm1, M_t = inputs
+        h_t, M_t, w_tm1 = inputs
         k_t = helper.get_output(self.key, h_t, **kwargs)
         beta_t = helper.get_output(self.beta, h_t, **kwargs)
         g_t = helper.get_output(self.gate, h_t, **kwargs)
@@ -113,11 +118,13 @@ class Head(Layer):
                  learn_init=True,
                  **kwargs):
         super(Head, self).__init__(incoming, **kwargs)
+        self.shifts = shifts
         self.W_hid_to_key, self.b_hid_to_key = W_hid_to_key, b_hid_to_key
         self.W_hid_to_beta, self.b_hid_to_beta = W_hid_to_beta, b_hid_to_beta
         self.W_hid_to_gate, self.b_hid_to_gate = W_hid_to_gate, b_hid_to_gate
         self.W_hid_to_shift, self.b_hid_to_shift = W_hid_to_shift, b_hid_to_shift
         self.W_hid_to_gamma, self.b_hid_to_gamma = W_hid_to_gamma, b_hid_to_gamma
+        self.weights_init = weights_init
 
     def get_output_for(self, input, **kwargs):
         return input
@@ -145,7 +152,6 @@ class WriteHead(Head):
                  weights_init=lasagne.init.GlorotUniform(),
                  learn_init=True,
                  **kwargs):
-
         super(WriteHead, self).__init__(incoming, shifts,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
@@ -184,8 +190,7 @@ class ReadHead(Head):
                  weights_init=lasagne.init.GlorotUniform(),
                  learn_init=True,
                  **kwargs):
-
-        super(WriteHead, self).__init__(incoming, shifts,
+        super(ReadHead, self).__init__(incoming, shifts,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
