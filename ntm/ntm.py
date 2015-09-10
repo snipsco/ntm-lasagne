@@ -34,10 +34,8 @@ class NTMLayer(Layer):
             #   - w_tm1 for all the writing heads
             #   - w_tm1 for all the reading heads
             #   - Additional requirements for the controller (e.g. c_tm1 for LSTM)
-            #   - M_0
-            #   - h_0
-            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the writing heads (15)
-            #   - w_0, W_hid_to_key, b_hid_to_key, ... for all the reading heads (11)
+            #   - W_hid_to_key, b_hid_to_key, ... for all the writing heads (14)
+            #   - W_hid_to_key, b_hid_to_key, ... for all the reading heads (10)
             #   - Controller parameters (e.g. W & b for Dense)
             #   - Additional initial req. for the controller (e.g. c_0 for LSTM)
             num_write_heads = len(filter(lambda head: isinstance(head, WriteHead), self.heads))
@@ -78,14 +76,26 @@ class NTMLayer(Layer):
 
             return outputs_t
 
+        non_seqs = self.controller.non_sequences
+        for head in self.heads:
+            non_seqs += [head.W_hid_to_key, head.b_hid_to_key,
+                head.W_hid_to_beta, head.b_hid_to_beta,
+                head.W_hid_to_gate, head.b_hid_to_gate,
+                head.W_hid_to_shift, head.b_hid_to_shift,
+                head.W_hid_to_gamma, head.b_hid_to_gamma]
+            if isinstance(head, WriteHead):
+                non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
+                    head.W_hid_to_add, head.b_hid_to_add]
+            non_seqs += self.controller.get_params()
+
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
             outputs_info=([self.memory.memory_init, self.controller.hid_init]
                 + [head.weights_init for head in self.heads]
-                + self.controller.outputs_info[1:]))#,
-            # non_sequences=self.controller.non_sequences + ,
-            # strict=True)
+                + self.controller.outputs_info[1:]),
+            non_sequences=non_seqs,
+            strict=True)
 
         return hids[1]
 
