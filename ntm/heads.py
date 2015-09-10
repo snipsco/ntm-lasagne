@@ -170,34 +170,3 @@ class ReadHead(Head):
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
-
-
-# class Head(Layer):
-#     """
-#     docstring for Head
-#     """
-#     def __init__(self, incoming, shifts=(-1, 1),
-#                  W_hid_to_key=lasagne.init.GlorotUniform(),
-#                  b_hid_to_key=lasagne.init.Constant(0.)
-#                  W_hid_to_beta=lasagne.init.GlorotUniform(),
-#                  b_hid_to_beta=lasagne.init.Constant(0.),
-#                  W_hid_to_gate=lasagne.init.GlorotUniform(),
-#                  b_hid_to_gate=lasagne.init.Constant(0.),
-#                  W_hid_to_shift=lasagne.init.GlorotUniform(),
-#                  b_hid_to_shift=lasagne.init.Constant(0.),
-#                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
-#                  b_hid_to_gamma=lasagne.init.Constant(0.),
-#                  weights_init=lasagne.init.GlorotUniform(),
-#                  learn_init=True,
-#                  **kwargs):
-#         super(Head, self).__init__(incoming, **kwargs)
-#         self.shifts = shifts
-#         self.W_hid_to_key, self.b_hid_to_key = W_hid_to_key, b_hid_to_key
-#         self.W_hid_to_beta, self.b_hid_to_beta = W_hid_to_beta, b_hid_to_beta
-#         self.W_hid_to_gate, self.b_hid_to_gate = W_hid_to_gate, b_hid_to_gate
-#         self.W_hid_to_shift, self.b_hid_to_shift = W_hid_to_shift, b_hid_to_shift
-#         self.W_hid_to_gamma, self.b_hid_to_gamma = W_hid_to_gamma, b_hid_to_gamma
-#         self.weights_init = weights_init
-
-#     def get_output_for(self, input, **kwargs):
-#         return input
