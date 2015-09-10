@@ -38,7 +38,7 @@ class Head(MergeLayer):
 
         self.learn_init = learn_init
     
-        self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
+        self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=None,
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
@@ -72,7 +72,7 @@ class Head(MergeLayer):
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
         self.weights_init = self.add_param(
-            weights_init, (1,) + self.memory_size[1:],
+            weights_init, (1, self.memory_size[0]),
             name='weights_init', trainable=learn_init, regularizable=False)
 
 
@@ -143,12 +143,12 @@ class WriteHead(Head):
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
     
-        self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
+        self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
             W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=None,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
-        self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
+        self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
             W=W_hid_to_add, b=b_hid_to_add, nonlinearity=None,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
