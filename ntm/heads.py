@@ -9,13 +9,10 @@ import lasagne.layer.helper as helper
 import .similarities
 
 
-class Head(MergeLayer):
+class HeadLayer(MergeLayer):
     """
-    docstring for Head
-    Inherit from MergeLayer since the head gets inputs
-    [h_t, w_tm1, M_t] where h_t is the output of the 
-    controller, w_tm1 the weights at time t-1 and M_t
-    the memory
+    docstring for HeadLayer
+    [h_t, M_t, w_tm1]
     """
     def __init__(self, incomings, shifts=(-1, 1),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -32,20 +29,20 @@ class Head(MergeLayer):
                  learn_init=True,
                  **kwargs):
 
-        self.ctrl_output, self.weight_tm1, self.memory = incomings
-        self.memory_size = lasagne.helper.get_output_shape(self.memory)
+        self.ctrl_layer, self.memory_layer, _ = incomings
+        self.memory_size = lasagne.helper.get_output_shape(self.memory_layer)
         self.learn_init = learn_init
         basename = kwargs.get('name', 'head')
     
-        self.key = DenseLayer(self.ctrl_output, num_units=self.memory_size[0],
+        self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=None,
             name=basename + '.key')
         
-        self.beta = DenseLayer(self.ctrl_output, num_units=1,
+        self.beta = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=None,
             name=basename + '.beta')
 
-        self.gate = DenseLayer(self.ctrl_output, num_units=1,
+        self.gate = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=None,
             name=basename + '.gate')
 
@@ -57,19 +54,17 @@ class Head(MergeLayer):
                              'has value %s)' % (basename, shifts))
         self.shifts = (int(shifts[0]), int(shifts[1]))
         num_shifts = self.shifts[1] - self.shifts[0] + 1
-        self.shift = DenseLayer(self.ctrl_output, num_units=num_shifts,
+        self.shift = DenseLayer(self.ctrl_layer, num_units=num_shifts,
             W=W_hid_to_shift, b_hid_to_shift, nonlinearity=None,
             name=basename + '.shift')
 
-        self.gamma = DenseLayer(self.ctrl_output, num_units=1,
+        self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
             W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=None,
             name=basename + '.gamma')
 
         self.weights_init = self.add_param(
             weights_init, (1,) + self.memory_size[1:],
             name=basename + '.weights_init', trainable=learn_init, regularizable=False)
-
-        self.weights = T.dvector(basename + '.weights')
 
         super(Head, self).__init__(incomings, **kwargs)
 
@@ -98,15 +93,41 @@ class Head(MergeLayer):
 
         return w
 
-    def __lt__(self, head):
-        return self.__class__ < head.__class__
+
+class Head(Layer):
+    """
+    docstring for Head
+    """
+    def __init__(self, incoming, shifts=(-1, 1),
+                 W_hid_to_key=lasagne.init.GlorotUniform(),
+                 b_hid_to_key=lasagne.init.Constant(0.)
+                 W_hid_to_beta=lasagne.init.GlorotUniform(),
+                 b_hid_to_beta=lasagne.init.Constant(0.),
+                 W_hid_to_gate=lasagne.init.GlorotUniform(),
+                 b_hid_to_gate=lasagne.init.Constant(0.),
+                 W_hid_to_shift=lasagne.init.GlorotUniform(),
+                 b_hid_to_shift=lasagne.init.Constant(0.),
+                 W_hid_to_gamma=lasagne.init.GlorotUniform(),
+                 b_hid_to_gamma=lasagne.init.Constant(0.),
+                 weights_init=lasagne.init.GlorotUniform(),
+                 learn_init=True,
+                 **kwargs):
+        super(Head, self).__init__(incoming, **kwargs)
+        self.W_hid_to_key, self.b_hid_to_key = W_hid_to_key, b_hid_to_key
+        self.W_hid_to_beta, self.b_hid_to_beta = W_hid_to_beta, b_hid_to_beta
+        self.W_hid_to_gate, self.b_hid_to_gate = W_hid_to_gate, b_hid_to_gate
+        self.W_hid_to_shift, self.b_hid_to_shift = W_hid_to_shift, b_hid_to_shift
+        self.W_hid_to_gamma, self.b_hid_to_gamma = W_hid_to_gamma, b_hid_to_gamma
+
+    def get_output_for(self, input, **kwargs):
+        return input
 
 
 class WriteHead(Head):
     """
     docstring for WriteHead
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, shifts=(-1, 1),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.)
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
@@ -121,34 +142,54 @@ class WriteHead(Head):
                  b_hid_to_erase=lasagne.init.Constant(0.)
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
+                 weights_init=lasagne.init.GlorotUniform(),
+                 learn_init=True,
                  **kwargs):
 
-        super(WriteHead, self).__init__(incomings, shifts,
+        super(WriteHead, self).__init__(incoming, shifts,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
             W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
-            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma)
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+            weights_init=weights_init, learn_init=learn_init,
+            **kwargs)
     
-        self.erase = DenseLayer(self.ctrl_output, num_units=self.memory_size[0],
+        self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
             W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=None,
             name=basename + '.erase')
+        self.W_hid_to_erase, self.b_hid_to_erase = W_hid_to_erase, b_hid_to_erase
 
-        self.add = DenseLayer(self.ctrl_output, num_units=self.memory_size[0],
+        self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[0],
             W=W_hid_to_add, b=b_hid_to_add, nonlinearity=None,
             name=basename + '.add')
+        self.W_hid_to_add, self.b_hid_to_add = W_hid_to_add, b_hid_to_add
 
 
 class ReadHead(Head):
     """
     docstring for ReadHead
     """
-    def __init__(self):
-        super(ReadHead, self).__init__()
+    def __init__(self, incoming, shifts=(-1, 1),
+                 W_hid_to_key=lasagne.init.GlorotUniform(),
+                 b_hid_to_key=lasagne.init.Constant(0.)
+                 W_hid_to_beta=lasagne.init.GlorotUniform(),
+                 b_hid_to_beta=lasagne.init.Constant(0.),
+                 W_hid_to_gate=lasagne.init.GlorotUniform(),
+                 b_hid_to_gate=lasagne.init.Constant(0.),
+                 W_hid_to_shift=lasagne.init.GlorotUniform(),
+                 b_hid_to_shift=lasagne.init.Constant(0.),
+                 W_hid_to_gamma=lasagne.init.GlorotUniform(),
+                 b_hid_to_gamma=lasagne.init.Constant(0.),
+                 weights_init=lasagne.init.GlorotUniform(),
+                 learn_init=True,
+                 **kwargs):
 
-
-class HeadCollection(object):
-    """docstring for HeadCollection"""
-    def __init__(self, arg):
-        super(HeadCollection, self).__init__()
-        self.arg = arg
+        super(WriteHead, self).__init__(incoming, shifts,
+            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
+            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
+            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
+            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+            weights_init=weights_init, learn_init=learn_init
+            **kwargs)

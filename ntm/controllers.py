@@ -12,8 +12,9 @@ class Controller(object):
     """
     docstring for Controller
     """
-    def __init__(self, heads, **kwargs):
-        self.heads = heads
+    def __init__(self, hid_init=lasagne.init.Constant(0.),
+                 **kwargs):
+        self.hid_init = hid_init
 
     def step(self, input, reads, hids, **kwargs):
         """
@@ -49,7 +50,7 @@ class LSTMController(Controller, LSTMLayer):
                  precompute_input=True,
                  mask_input=None,
                  **kwargs):
-        Controller.__init__(self, heads, **kwargs)
+        Controller.__init__(self, heads, hid_init=hid_init, **kwargs)
         LSTMLayer.__init__(self, incoming, num_units, ingate=ingate, forgetgate=forgetgate,
             cell=cell, outgate=outgate, nonlinearity=nonlinearity, cell_init=cell_init,
             hid_init=hid_init, backwards=backwards, learn_init=learn_init, peepholes=peepholes,
