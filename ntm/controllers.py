@@ -40,6 +40,9 @@ class Controller(Layer):
             'a get_output_for method. Did you try to call '
             'get_output from the controller?')
 
+    def get_output_shape_for(self, input_shapes):
+        return (input_shapes[0], input_shapes[1], self.num_units)
+
     def step(self, input, reads, *args, **kwargs):
         """
         Step function for the controller
