@@ -25,8 +25,8 @@ class NTMLayer(Layer):
         # TODO: Sort the heads to have WriteHeads > ReadHeads
         self.heads = heads
 
-    def get_output_shape_for(self, input_shape):
-        return self.controller.get_output_shape_for(input_shape)
+    def get_output_shape_for(self, input_shapes):
+        return (input_shapes[0], input_shapes[1], self.controller.num_units)
 
     def get_params(self, **tags):
         params = super(NTMLayer, self).get_params(**tags)

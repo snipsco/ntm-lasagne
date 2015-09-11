@@ -41,7 +41,7 @@ class Controller(Layer):
             'get_output from the controller?')
 
     def get_output_shape_for(self, input_shapes):
-        return (input_shapes[0], input_shapes[1], self.num_units)
+        return (input_shapes[0], self.num_units)
 
     def step(self, input, reads, *args, **kwargs):
         """
@@ -213,23 +213,27 @@ class DenseController(Controller, DenseLayer):
         Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
             learn_init=learn_init, **kwargs)
 
-        self.add_param(W_reads_to_hid, (num_reads, num_units), name='W_reads_to_hid')
-        self.add_param(b_reads_to_hid, (num_units,), name='b_reads_to_hid')
+        self.W_reads_to_hid = self.add_param(W_reads_to_hid,
+            (num_reads, num_units), name='W_reads_to_hid')
+        self.b_reads_to_hid = self.add_param(b_reads_to_hid,
+            (num_units,), name='b_reads_to_hid')
 
-    def step(self, input, reads, W, b):
+    def step(self, input, reads, W, b, W_reads_to_hid, b_reads_to_hid):
         if input.ndim > 2:
             # if the input has more than two dimensions, flatten it into a
             # batch of feature vectors.
             input = input.flatten(2)
 
-        activation = T.dot(input, W)
+        activation = T.dot(input, W) + T.dot(reads, W_reads_to_hid)
         if b is not None:
             activation = activation + b.dimshuffle('x', 0)
+        if b_reads_to_hid is not None:
+            activation = activation + b_reads_to_hid.dimshuffle('x', 0)
         return [self.nonlinearity(activation)]
 
     @property
     def non_sequences(self):
-        return [self.W, self.b]
+        return [self.W, self.b, self.W_reads_to_hid, self.b_reads_to_hid]
 
     @property
     def outputs_info(self):
