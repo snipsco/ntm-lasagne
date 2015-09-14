@@ -39,6 +39,8 @@ class NTMLayer(Layer):
 
     def get_output_for(self, input, **kwargs):
 
+        input = input.dimshuffle(1, 0, 2)
+
         def step(x_t, M_tm1, h_tm1, *params):
             # In the list params there are, in that order
             #   - w_tm1 for all the writing heads
@@ -110,7 +112,10 @@ class NTMLayer(Layer):
             non_sequences=non_seqs,
             strict=True)
 
-        return hids[1]
+        # dimshuffle back to (n_batch, n_time_steps, n_features))
+        hid_out = hids[1].dimshuffle(1, 0, 2)
+
+        return hid_out
 
 
 if __name__ == '__main__':

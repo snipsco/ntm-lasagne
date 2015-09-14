@@ -4,9 +4,8 @@ import numpy as np
 
 
 def cosine_similarity(x, y, eps=1e-9):
-    xe, ye = x + eps, y + eps
+    y = y.dimshuffle(1, 0)
     z = T.dot(x, y)
-    z /= xe.norm(2)
-    z /= ye.norm(2, axis=0)
+    z /= x.norm(2) * y.norm(2, axis=0).dimshuffle('x', 0) + eps
 
     return z

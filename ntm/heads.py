@@ -5,6 +5,7 @@ import lasagne.init
 from lasagne.layers import Layer, MergeLayer, DenseLayer, InputLayer
 import lasagne.nonlinearities
 import lasagne.layers.helper as helper
+from lasagne.theano_extensions import padding
 
 import similarities
 
@@ -60,8 +61,8 @@ class Head(MergeLayer):
             raise ValueError('`shifts` must be an interval (`%s`.shifts ' +
                              'has value %s)' % (self.basename, shifts))
         self.shifts = (int(shifts[0]), int(shifts[1]))
-        num_shifts = self.shifts[1] - self.shifts[0] + 1
-        self.shift = DenseLayer(self.ctrl_layer, num_units=num_shifts,
+        self.num_shifts = self.shifts[1] - self.shifts[0] + 1
+        self.shift = DenseLayer(self.ctrl_layer, num_units=self.num_shifts,
             W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=None,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
@@ -85,17 +86,29 @@ class Head(MergeLayer):
         gamma_t = self.gamma.get_output_for(h_t, **kwargs)
 
         # Content Adressing (3.3.1)
+        beta_t = T.addbroadcast(beta_t, 1)
         betaK = beta_t * similarities.cosine_similarity(k_t, M_t)
         w_c = lasagne.nonlinearities.softmax(betaK)
 
         # Interpolation (3.3.2)
+        g_t = T.addbroadcast(g_t, 1)
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
         # TODO: w_tilde = ...
-        w_tilde = w_g
+        w_g = w_g.dimshuffle(0, 'x', 'x', 1)
+        conv_filter = s_t.dimshuffle(0, 'x', 'x', 1)
+        pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
+        w_g = padding.pad(w_g, [pad], batch_ndim=3)
+        convolution = T.nnet.conv2d(w_g, conv_filter,
+            image_shape=(self.input_shapes[0][0], 1, 1, self.input_shapes[1][0] + pad[0] + pad[1]),
+            filter_shape=(1, 1, 1, self.num_shifts),
+            subsample=(1, 1),
+            border_mode='valid')
+        w_tilde = convolution[:, 0, 0, :]
 
         # Sharpening (3.3.2)
+        gamma_t = T.addbroadcast(gamma_t, 1)
         w = w_tilde ** gamma_t
         w /= T.sum(w) + 1e-9
 

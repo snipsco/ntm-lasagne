@@ -2,7 +2,7 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-from lasagne.layers import Layer, MergeLayer, DenseLayer
+from lasagne.layers import Layer, MergeLayer, DenseLayer, InputLayer
 from lasagne.layers.recurrent import Gate, LSTMLayer
 import lasagne.nonlinearities
 import lasagne.init
@@ -207,7 +207,12 @@ class DenseController(Controller, DenseLayer):
                  hid_init=lasagne.init.Constant(0.),
                  learn_init=False,
                  **kwargs):
-        DenseLayer.__init__(self, incoming, num_units, W=W,
+        # QKFIX: InputLayer instead of incoming: the controller
+        # receives the whole sequence, but operates on individual
+        # time steps. Need to remove the time dimension.
+        input_layer = InputLayer((incoming.output_shape[0], \
+            incoming.output_shape[2]))
+        DenseLayer.__init__(self, input_layer, num_units, W=W,
                  b=b, nonlinearity=nonlinearity,
                  **kwargs)
         Controller.__init__(self, incoming, num_units, num_reads, hid_init=hid_init,
