@@ -118,8 +118,7 @@ class NTMLayer(Layer):
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         hid_out = hids[1].dimshuffle(1, 0, 2)
 
-        # return hid_out
-        return hids
+        return hid_out
 
 
 if __name__ == '__main__':

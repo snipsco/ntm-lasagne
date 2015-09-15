@@ -236,9 +236,6 @@ class DenseController(Controller, DenseLayer):
             activation = activation + b_reads_to_hid.dimshuffle('x', 0)
         return [self.nonlinearity(activation)]
 
-    def get_params(self, **tags):
-        return []
-
     @property
     def non_sequences(self):
         return [self.W, self.b, self.W_reads_to_hid, self.b_reads_to_hid]

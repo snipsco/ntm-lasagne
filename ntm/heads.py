@@ -116,7 +116,6 @@ class Head(MergeLayer):
         return w
 
     def get_params(self, **tags):
-        # params = []
         params = super(Head, self).get_params(**tags)
         params += self.key.get_params(**tags)
         params += self.beta.get_params(**tags)
@@ -169,10 +168,9 @@ class WriteHead(Head):
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
     def get_params(self, **tags):
-        params = []
-        # params = super(WriteHead, self).get_params(**tags)
-        # params += self.erase.get_params(**tags)
-        # params += self.add.get_params(**tags)
+        params = super(WriteHead, self).get_params(**tags)
+        params += self.erase.get_params(**tags)
+        params += self.add.get_params(**tags)
 
         return params
 
@@ -203,6 +201,3 @@ class ReadHead(Head):
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
-
-    def get_params(self, **tags):
-        return []
