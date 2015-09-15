@@ -26,7 +26,7 @@ class Head(MergeLayer):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.GlorotUniform(),
+                 weights_init=lasagne.init.Constant(0.),
                  learn_init=True,
                  **kwargs):
 
@@ -45,12 +45,12 @@ class Head(MergeLayer):
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
         self.beta = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=None,
+            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=T.nnet.softplus,
             name=self.basename + '.beta')
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
         self.gate = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=None,
+            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=lasagne.nonlinearities.sigmoid,
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
@@ -63,15 +63,16 @@ class Head(MergeLayer):
         self.shifts = (int(shifts[0]), int(shifts[1]))
         self.num_shifts = self.shifts[1] - self.shifts[0] + 1
         self.shift = DenseLayer(self.ctrl_layer, num_units=self.num_shifts,
-            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=None,
+            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=lasagne.nonlinearities.softmax,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
         self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=None,
+            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + T.nnet.softplus(x),
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
+        # TODO: Replace the 1 by the number of batches
         self.weights_init = self.add_param(
             weights_init, (1, self.memory_size[0]),
             name='weights_init', trainable=learn_init, regularizable=False)
@@ -109,12 +110,13 @@ class Head(MergeLayer):
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 1)
-        w = w_tilde ** gamma_t
-        w /= T.sum(w) + 1e-9
+        w = T.pow(w_tilde, gamma_t) + 1e-9
+        w /= T.sum(w)
 
         return w
 
     def get_params(self, **tags):
+        # params = []
         params = super(Head, self).get_params(**tags)
         params += self.key.get_params(**tags)
         params += self.beta.get_params(**tags)
@@ -144,7 +146,7 @@ class WriteHead(Head):
                  b_hid_to_erase=lasagne.init.Constant(0.),
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.GlorotUniform(),
+                 weights_init=lasagne.init.Constant(0.),
                  learn_init=True,
                  **kwargs):
         super(WriteHead, self).__init__(incomings, shifts,
@@ -167,9 +169,10 @@ class WriteHead(Head):
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
     def get_params(self, **tags):
-        params = super(WriteHead, self).get_params(**tags)
-        params += self.erase.get_params(**tags)
-        params += self.add.get_params(**tags)
+        params = []
+        # params = super(WriteHead, self).get_params(**tags)
+        # params += self.erase.get_params(**tags)
+        # params += self.add.get_params(**tags)
 
         return params
 
@@ -189,7 +192,7 @@ class ReadHead(Head):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.GlorotUniform(),
+                 weights_init=lasagne.init.Constant(0.),
                  learn_init=True,
                  **kwargs):
         super(ReadHead, self).__init__(incomings, shifts,
@@ -200,3 +203,6 @@ class ReadHead(Head):
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
+
+    def get_params(self, **tags):
+        return []

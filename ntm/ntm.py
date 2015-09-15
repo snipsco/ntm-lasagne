@@ -79,6 +79,7 @@ class NTMLayer(Layer):
                 ctrl_tm1 = [h_tm1] + list(params[num_heads:num_heads + num_ctrl_req])
             ctrl_t = self.controller.step(x_t, r_t, *(ctrl_tm1 + self.controller.non_sequences))
             outputs_t.append(ctrl_t[0])
+            # outputs_t.append(h_tm1)
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
@@ -112,10 +113,13 @@ class NTMLayer(Layer):
             non_sequences=non_seqs,
             strict=True)
 
+        theano.printing.Print("\n" * 20 + "WEIGHTS")(hids[2])
+
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         hid_out = hids[1].dimshuffle(1, 0, 2)
 
-        return hid_out
+        # return hid_out
+        return hids
 
 
 if __name__ == '__main__':
