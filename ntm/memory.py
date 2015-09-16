@@ -11,7 +11,7 @@ class Memory(InputLayer):
     docstring for Memory
     """
     def __init__(self, shape, 
-        memory_init=lasagne.init.Constant(0.),
+        memory_init=lasagne.init.GlorotUniform(),
         learn_init=True,
         **kwargs):
         super(Memory, self).__init__(shape, **kwargs)

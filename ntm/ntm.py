@@ -16,6 +16,7 @@ class NTMLayer(Layer):
                  memory,
                  controller,
                  heads,
+                 grad_clipping=False,
                  **kwargs):
         super(NTMLayer, self).__init__(incoming, **kwargs)
 
@@ -24,6 +25,7 @@ class NTMLayer(Layer):
         self.controller = controller
         # TODO: Sort the heads to have WriteHeads > ReadHeads
         self.heads = heads
+        self.grad_clipping = grad_clipping
 
     def get_output_shape_for(self, input_shapes):
         return (input_shapes[0], input_shapes[1], self.controller.num_units)
@@ -63,6 +65,8 @@ class NTMLayer(Layer):
             # Add
             for i in range(num_write_heads):
                 M_t += T.outer(params[i], self.heads[i].add.get_output_for(h_tm1))
+            if self.grad_clipping is not False:
+                M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
@@ -99,21 +103,21 @@ class NTMLayer(Layer):
             if isinstance(head, WriteHead):
                 non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
                     head.W_hid_to_add, head.b_hid_to_add]
-            non_seqs += self.controller.get_params()
+            # non_seqs += self.controller.get_params()
 
         outs_info = [self.memory.memory_init, self.controller.hid_init]
         outs_info += [head.weights_init for head in self.heads]
         if self.controller.outputs_info is not None:
             outs_info += self.controller.outputs_info[1:]
 
+        # QKFIX: truncate the gradient at 40
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
             outputs_info=outs_info,
             non_sequences=non_seqs,
+            # truncate_gradient=2,
             strict=True)
-
-        theano.printing.Print("\n" * 20 + "WEIGHTS")(hids[2])
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         hid_out = hids[1].dimshuffle(1, 0, 2)

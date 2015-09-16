@@ -9,6 +9,20 @@ from lasagne.theano_extensions import padding
 
 import similarities
 
+from lasagne.utils import floatX
+import numpy as np
+
+
+class EquiProba(lasagne.init.Initializer):
+
+    def sample(self, shape):
+        # TODO: General case, here it only works for 2D
+        M = float(shape[1])
+        if M == 0:
+            raise ValueError('The second dimension '
+                'must be non zero')
+        return floatX(np.ones(shape) / M)
+
 
 class Head(MergeLayer):
     """
@@ -26,7 +40,7 @@ class Head(MergeLayer):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.Constant(0.),
+                 weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
 
@@ -96,7 +110,6 @@ class Head(MergeLayer):
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
-        # TODO: w_tilde = ...
         w_g = w_g.dimshuffle(0, 'x', 'x', 1)
         conv_filter = s_t.dimshuffle(0, 'x', 'x', 1)
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
@@ -145,7 +158,7 @@ class WriteHead(Head):
                  b_hid_to_erase=lasagne.init.Constant(0.),
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.Constant(0.),
+                 weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
         super(WriteHead, self).__init__(incomings, shifts,
@@ -158,12 +171,13 @@ class WriteHead(Head):
             **kwargs)
     
         self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=None,
+            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=lasagne.nonlinearities.sigmoid,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
+        # TODO: ReLu nonlinearity for self.add
         self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=None,
+            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=lasagne.nonlinearities.rectify,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
@@ -190,7 +204,7 @@ class ReadHead(Head):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=lasagne.init.Constant(0.),
+                 weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
         super(ReadHead, self).__init__(incomings, shifts,
