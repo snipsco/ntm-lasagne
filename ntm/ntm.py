@@ -16,7 +16,7 @@ class NTMLayer(Layer):
                  memory,
                  controller,
                  heads,
-                 grad_clipping=False,
+                 grad_clipping=None,
                  **kwargs):
         super(NTMLayer, self).__init__(incoming, **kwargs)
 
@@ -65,8 +65,8 @@ class NTMLayer(Layer):
             # Add
             for i in range(num_write_heads):
                 M_t += T.outer(params[i], self.heads[i].add.get_output_for(h_tm1))
-            if self.grad_clipping is not False:
-                M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
+            # if self.grad_clipping is not False:
+            #     M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
@@ -88,6 +88,11 @@ class NTMLayer(Layer):
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
                 outputs_t.append(self.heads[i].get_output_for([ctrl_t[0], M_t, params[i]]))
+
+            # Gradient clipping
+            if self.grad_clipping is not None:
+                outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
+                    self.grad_clipping) for param in outputs_t]
 
             outputs_t += ctrl_t[1:]
 
@@ -116,7 +121,6 @@ class NTMLayer(Layer):
             sequences=input,
             outputs_info=outs_info,
             non_sequences=non_seqs,
-            # truncate_gradient=2,
             strict=True)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))

@@ -54,12 +54,12 @@ class Head(MergeLayer):
         self.learn_init = learn_init
     
         self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=None,
+            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=lasagne.nonlinearities.rectify,
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
         self.beta = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=T.nnet.softplus,
+            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=lasagne.nonlinearities.rectify,
             name=self.basename + '.beta')
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
@@ -82,7 +82,7 @@ class Head(MergeLayer):
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
         self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + T.nnet.softplus(x),
+            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + lasagne.nonlinearities.rectify(x),
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
