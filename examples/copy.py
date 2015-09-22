@@ -58,10 +58,11 @@ l_out = ReshapeLayer(l_dense, (1, seqlen, l + 1))
 
 # Loss function
 pred = lasagne.layers.get_output(l_out)
+pred = T.clip(pred, 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
 # Gradient descent updates
 params = lasagne.layers.get_all_params(l_out, trainable=True)
-# updates = ntm.updates.graves_rmsprop(loss, params)
+# updates = ntm.updates.graves_rmsprop(loss, params, beta=1e-3)
 updates = lasagne.updates.adam(loss, params, learning_rate=1e-4)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
