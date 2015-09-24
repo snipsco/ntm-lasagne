@@ -62,4 +62,4 @@ target/
 test/
 data/
 img/
-ntm-theano/
+ntm_theano/
