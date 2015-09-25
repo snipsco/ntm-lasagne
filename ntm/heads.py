@@ -123,7 +123,7 @@ class Head(MergeLayer):
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 1)
-        w = T.pow(w_tilde, gamma_t) + 1e-9
+        w = T.pow(w_tilde + 1e-9, gamma_t)
         w /= T.sum(w)
 
         return w
