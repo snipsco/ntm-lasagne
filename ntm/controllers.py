@@ -6,56 +6,95 @@ from lasagne.layers import Layer, MergeLayer, DenseLayer, InputLayer
 from lasagne.layers.recurrent import Gate, LSTMLayer
 import lasagne.nonlinearities
 import lasagne.init
+import lasagne.utils
 
 from collections import OrderedDict
 
 
-class Controller(Layer):
+class Controller(object):
     """
     docstring for Controller
     """
-    def __init__(self, incoming, num_units, num_reads, hid_init=lasagne.init.Constant(0.),
-                 learn_init=False, **kwargs):
-        self.num_units = num_units
-        self.num_reads = num_reads
-        if isinstance(hid_init, T.TensorVariable):
-            if hid_init.ndim != 2:
-                raise ValueError(
-                    "When hid_init is provided as a TensorVariable, it should "
-                    "have 2 dimensions and have shape (num_batch, num_units)")
-            self.hid_init = hid_init
+    def __init__(self, incoming, hid_init=lasagne.init.Constant(0.), \
+        learn_init=False, name=None):
+        if isinstance(incoming, tuple):
+            self.input_shape = incoming
+            self.input_layer = None
         else:
-            self.hid_init = self.add_param(
-                hid_init, (1, num_units), name="hid_init",
-                trainable=learn_init, regularizable=False)
-        self.learn_init = learn_init
+            self.input_shape = incoming.output_shape
+            self.input_layer = incoming
 
-    def get_output_for(self, input, **kwargs):
-        """
-        Override the get_output_for method from the Layer
-        since we want the controller to perform only a step
-        """
-        raise TypeError('A controller does not have the same '
-            'behaviour as a Layer, therefore does not have '
-            'a get_output_for method. Did you try to call '
-            'get_output from the controller?')
+        self.name = name
+        self.params = OrderedDict()
 
-    def get_output_shape_for(self, input_shapes):
-        return (input_shapes[0], self.num_units)
+    def add_param(self, spec, shape, name=None, **tags):
+        # prefix the param name with the layer name if it exists
+        if name is not None:
+            if self.name is not None:
+                name = "%s.%s" % (self.name, name)
+
+        param = lasagne.utils.create_param(spec, shape, name)
+        # parameters should be trainable and regularizable by default
+        tags['trainable'] = tags.get('trainable', True)
+        tags['regularizable'] = tags.get('regularizable', True)
+        self.params[param] = set(tag for tag, value in tags.items() if value)
+
+        return param
 
     def step(self, input, reads, *args, **kwargs):
-        """
-        Step function for the controller
-        """
-        raise NotImplementedError
-
-    @property
-    def non_sequences(self):
         raise NotImplementedError
 
     @property
     def outputs_info(self):
-        raise NotImplementedError
+        return []
+
+
+# class Controller(Layer):
+#     """
+#     docstring for Controller
+#     """
+#     def __init__(self, incoming, num_units, num_reads, hid_init=lasagne.init.Constant(0.),
+#                  learn_init=False, **kwargs):
+#         self.num_units = num_units
+#         self.num_reads = num_reads
+#         if isinstance(hid_init, T.TensorVariable):
+#             if hid_init.ndim != 2:
+#                 raise ValueError(
+#                     "When hid_init is provided as a TensorVariable, it should "
+#                     "have 2 dimensions and have shape (num_batch, num_units)")
+#             self.hid_init = hid_init
+#         else:
+#             self.hid_init = self.add_param(
+#                 hid_init, (1, num_units), name="hid_init",
+#                 trainable=learn_init, regularizable=False)
+#         self.learn_init = learn_init
+
+#     def get_output_for(self, input, **kwargs):
+#         """
+#         Override the get_output_for method from the Layer
+#         since we want the controller to perform only a step
+#         """
+#         raise TypeError('A controller does not have the same '
+#             'behaviour as a Layer, therefore does not have '
+#             'a get_output_for method. Did you try to call '
+#             'get_output from the controller?')
+
+#     def get_output_shape_for(self, input_shapes):
+#         return (input_shapes[0], self.num_units)
+
+#     def step(self, input, reads, *args, **kwargs):
+#         """
+#         Step function for the controller
+#         """
+#         raise NotImplementedError
+
+#     @property
+#     def non_sequences(self):
+#         raise NotImplementedError
+
+#     @property
+#     def outputs_info(self):
+#         raise NotImplementedError
 
 class LSTMController(Controller, LSTMLayer):
     """
