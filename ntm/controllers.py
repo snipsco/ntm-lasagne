@@ -95,7 +95,7 @@ class DenseController(Controller):
 
     @property
     def outputs_info(self):
-        return None
+        return []
 
 
 if __name__ == '__main__':

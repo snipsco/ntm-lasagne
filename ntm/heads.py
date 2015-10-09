@@ -64,7 +64,7 @@ class Head(MergeLayer):
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
         self.gate = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=lasagne.nonlinearities.sigmoid,
+            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=T.nnet.hard_sigmoid,
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
@@ -123,7 +123,7 @@ class Head(MergeLayer):
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 1)
-        w = T.pow(w_tilde + 1e-9, gamma_t)
+        w = T.pow(w_tilde + 1e-6, gamma_t)
         w /= T.sum(w)
 
         return w
@@ -171,7 +171,7 @@ class WriteHead(Head):
             **kwargs)
     
         self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=lasagne.nonlinearities.sigmoid,
+            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=T.nnet.hard_sigmoid,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
