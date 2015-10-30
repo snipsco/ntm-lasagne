@@ -71,8 +71,8 @@ class DenseController(Controller):
                 name='W_{}'.format(name)),
                 self.add_param(b, (self.num_units,),
                 name='b_{}'.format(name)) if b is not None else None)
-        # Inputs / Hidden parameters
         num_inputs = int(np.prod(self.input_shape[2:]))
+        # Inputs / Hidden parameters
         self.W_in_to_hid, self.b_in_to_hid = add_weight_and_bias_params(num_inputs,
             W_in_to_hid, b_in_to_hid, name='in_to_hid')
         # Read vectors / Hidden parameters

@@ -32,7 +32,7 @@ class Head(MergeLayer):
     docstring for HeadLayer
     [h_t, M_t, w_tm1]
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incomings, num_shifts=3,
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -78,15 +78,8 @@ class Head(MergeLayer):
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
-        if len(shifts) != 2:
-            raise ValueError('`shifts` must be of length 2 (`%s`.shifts ' +
-                             'has length %d)' % (self.basename, len(shifts)))
-        if shifts[0] > shifts[1]:
-            raise ValueError('`shifts` must be an interval (`%s`.shifts ' +
-                             'has value %s)' % (self.basename, shifts))
-        self.shifts = (int(shifts[0]), int(shifts[1]))
-        self.num_shifts = self.shifts[1] - self.shifts[0] + 1
-        self.shift = DenseLayer(self.ctrl_layer, num_units=self.num_shifts,
+        self.num_shifts = num_shifts
+        self.shift = DenseLayer(self.ctrl_layer, num_units=num_shifts,
             W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=lasagne.nonlinearities.softmax,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
