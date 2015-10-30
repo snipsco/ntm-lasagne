@@ -23,6 +23,9 @@ class EquiProba(lasagne.init.Initializer):
                 'must be non zero')
         return floatX(np.ones(shape) / M)
 
+def clipped_linear(a, b):
+    return lambda x: T.clip(x, a, b)
+
 
 class Head(MergeLayer):
     """
@@ -30,6 +33,8 @@ class Head(MergeLayer):
     [h_t, M_t, w_tm1]
     """
     def __init__(self, incomings, shifts=(-1, 1),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
@@ -52,9 +57,14 @@ class Head(MergeLayer):
         super(Head, self).__init__(incomings, **kwargs)
 
         self.learn_init = learn_init
+
+        self.sign = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+            W=W_hid_to_sign, self.b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
+            name=self.basename + '.sign')
+        self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
     
         self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=lasagne.nonlinearities.rectify,
+            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=clipped_linear(0., 1.),
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
@@ -94,6 +104,7 @@ class Head(MergeLayer):
 
     def get_output_for(self, inputs, **kwargs):
         h_t, M_t, w_tm1 = inputs
+        sign_t = self.sign.get_output_for(h_t, **kwargs)
         k_t = self.key.get_output_for(h_t, **kwargs)
         beta_t = self.beta.get_output_for(h_t, **kwargs)
         g_t = self.gate.get_output_for(h_t, **kwargs)
@@ -102,7 +113,7 @@ class Head(MergeLayer):
 
         # Content Adressing (3.3.1)
         beta_t = T.addbroadcast(beta_t, 1)
-        betaK = beta_t * similarities.cosine_similarity(k_t, M_t)
+        betaK = beta_t * similarities.cosine_similarity(sign_t * k_t, M_t)
         w_c = lasagne.nonlinearities.softmax(betaK)
 
         # Interpolation (3.3.2)
@@ -130,6 +141,7 @@ class Head(MergeLayer):
 
     def get_params(self, **tags):
         params = super(Head, self).get_params(**tags)
+        params += self.sign.get_params(**tags)
         params += self.key.get_params(**tags)
         params += self.beta.get_params(**tags)
         params += self.gate.get_params(**tags)
@@ -144,6 +156,8 @@ class WriteHead(Head):
     docstring for WriteHead
     """
     def __init__(self, incomings, shifts=(-1, 1),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
@@ -158,10 +172,13 @@ class WriteHead(Head):
                  b_hid_to_erase=lasagne.init.Constant(0.),
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
+                 W_hid_to_sign_add=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign_add=lasagne.init.Constant(0.),
                  weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
         super(WriteHead, self).__init__(incomings, shifts,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
@@ -175,16 +192,21 @@ class WriteHead(Head):
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
-        # TODO: ReLu nonlinearity for self.add
         self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=lasagne.nonlinearities.rectify,
+            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=clipped_linear(0., 1.),
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
+
+        self.sign_add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+            W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=clipped_linear(-1., 1.),
+            name=self.basename + '.sign_add')
+        self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
 
     def get_params(self, **tags):
         params = super(WriteHead, self).get_params(**tags)
         params += self.erase.get_params(**tags)
         params += self.add.get_params(**tags)
+        params += self.sign_add.get_params(**tags)
 
         return params
 
@@ -194,6 +216,8 @@ class ReadHead(Head):
     docstring for ReadHead
     """
     def __init__(self, incomings, shifts=(-1, 1),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
@@ -208,6 +232,7 @@ class ReadHead(Head):
                  learn_init=True,
                  **kwargs):
         super(ReadHead, self).__init__(incomings, shifts,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
