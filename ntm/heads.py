@@ -146,7 +146,8 @@ class Head(Layer):
 
     def get_params(self, **tags):
         params = super(Head, self).get_params(**tags)
-        params += self.sign.get_params(**tags)
+        if self.sign is not None:
+            params += self.sign.get_params(**tags)
         params += self.key.get_params(**tags)
         params += self.beta.get_params(**tags)
         params += self.gate.get_params(**tags)
@@ -215,7 +216,8 @@ class WriteHead(Head):
         params = super(WriteHead, self).get_params(**tags)
         params += self.erase.get_params(**tags)
         params += self.add.get_params(**tags)
-        params += self.sign_add.get_params(**tags)
+        if self.sign_add is not None:
+            params += self.sign_add.get_params(**tags)
 
         return params
 
