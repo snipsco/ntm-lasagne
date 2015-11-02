@@ -61,7 +61,8 @@ class NTMLayer(Layer):
             M_t = M_tm1
             # Erase
             for i in range(num_write_heads):
-                M_t *= 1. - T.outer(params[i], self.heads[i].erase.get_output_for(h_tm1))
+                erase = self.heads[i].erase.get_output_for(h_tm1)
+                M_t *= 1. - T.outer(params[i], erase)
             # Add
             for i in range(num_write_heads):
                 if self.heads[i].sign_add is not None:
@@ -70,8 +71,6 @@ class NTMLayer(Layer):
                     sign = 1.
                 add = self.heads[i].add.get_output_for(h_tm1)
                 M_t += T.outer(params[i], sign * add)
-            # if self.grad_clipping is not False:
-            #     M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
@@ -81,25 +80,19 @@ class NTMLayer(Layer):
             r_t = T.concatenate(read_vectors)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
-            if self.controller.outputs_info is None or not self.controller.outputs_info:
-                ctrl_tm1 = []
-            else:
-                num_ctrl_req = len(self.controller.outputs_info) - 1
-                ctrl_tm1 = [h_tm1] + list(params[num_heads:num_heads + num_ctrl_req])
-            ctrl_t = self.controller.step(x_t, r_t, *(ctrl_tm1 + self.controller.non_sequences))
-            outputs_t.append(ctrl_t[0])
-            # outputs_t.append(h_tm1)
+            h_t, ctrl_t = self.controller.step(x_t, r_t, h_tm1)
+            outputs_t.append(h_t)
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
-                outputs_t.append(self.heads[i].get_output_for(ctrl_t[0], params[i], M_t))
+                outputs_t.append(self.heads[i].get_output_for(h_t, params[i], M_t))
 
             # Gradient clipping
-            if self.grad_clipping is not None:
-                outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
-                    self.grad_clipping) for param in outputs_t]
+            # if self.grad_clipping is not None:
+            #     outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
+            #         self.grad_clipping) for param in outputs_t]
 
-            outputs_t += ctrl_t[1:]
+            outputs_t += ctrl_t
 
             return outputs_t
 

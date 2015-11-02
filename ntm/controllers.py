@@ -42,7 +42,7 @@ class Controller(object):
 
         return param
 
-    def step(self, input, reads, *args, **kwargs):
+    def step(self, input, reads, hidden, *args, **kwargs):
         raise NotImplementedError
 
     @property
@@ -79,7 +79,7 @@ class DenseController(Controller):
         self.W_reads_to_hid, self.b_reads_to_hid = add_weight_and_bias_params(num_reads,
             W_reads_to_hid, b_reads_to_hid, name='reads_to_hid')
 
-    def step(self, input, reads):
+    def step(self, input, reads, hidden):
         if input.ndim > 2:
             input = input.flatten(2)
         if reads.ndim > 2:
@@ -91,7 +91,7 @@ class DenseController(Controller):
             activation = activation + self.b_in_to_hid.dimshuffle('x', 0)
         if self.b_reads_to_hid is not None:
             activation = activation + self.b_reads_to_hid.dimshuffle('x', 0)
-        return self.nonlinearity(activation)
+        return self.nonlinearity(activation), []
 
     @property
     def outputs_info(self):
