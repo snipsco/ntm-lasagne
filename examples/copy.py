@@ -49,7 +49,7 @@ pred = T.clip(lasagne.layers.get_output(l_out), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
 
 params = lasagne.layers.get_all_params(l_out, trainable=True)
-updates = graves_rmsprop(loss, params, beta=1e-4)
+updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)

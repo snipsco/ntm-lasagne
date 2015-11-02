@@ -8,33 +8,10 @@ import lasagne.layers.helper as helper
 from lasagne.theano_extensions import padding
 
 import similarities
+import nonlinearities
+import init
 
-from lasagne.utils import floatX
 import numpy as np
-
-
-class EquiProba(lasagne.init.Initializer):
-
-    def sample(self, shape):
-        # TODO: General case, here it only works for 2D
-        M = float(shape[1])
-        if M == 0:
-            raise ValueError('The second dimension '
-                'must be non zero')
-        return floatX(np.ones(shape) / M)
-
-class OneHot(lasagne.init.Initializer):
-
-    def sample(self, shape):
-        # TODO: General case, here it only works for 2D
-        M = np.min(shape)
-        arr = np.zeros(shape)
-        arr[:M, :M] += 1 * np.eye(M)
-        return floatX(arr)
-
-
-def clipped_linear(a, b):
-    return lambda x: T.clip(x, a, b)
 
 
 class Head(Layer):
@@ -54,8 +31,8 @@ class Head(Layer):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=OneHot(),
-                 learn_init=True,
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
 
         self.memory_size = memory_size
@@ -66,7 +43,7 @@ class Head(Layer):
 
         if W_hid_to_sign is not None:
             self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
-                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
+                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=nonlinearities.ClippedLinear(low=-1., high=1.),
                 name=self.basename + '.sign')
             self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
         else:
@@ -74,7 +51,7 @@ class Head(Layer):
             self.W_hid_to_sign, self.b_hid_to_sign = None, None
 
         self.key = DenseLayer(incoming, num_units=self.memory_size[1],
-            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=clipped_linear(0., 1.),
+            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=nonlinearities.ClippedLinear(low=0., high=1.),
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
@@ -180,8 +157,8 @@ class WriteHead(Head):
                  b_hid_to_add=lasagne.init.Constant(0.),
                  W_hid_to_sign_add=lasagne.init.GlorotUniform(),
                  b_hid_to_sign_add=lasagne.init.Constant(0.),
-                 weights_init=OneHot(),
-                 learn_init=True,
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
         super(WriteHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
@@ -199,13 +176,13 @@ class WriteHead(Head):
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
         self.add = DenseLayer(incoming, num_units=self.memory_size[1],
-            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=clipped_linear(0., 1.),
+            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=nonlinearities.ClippedLinear(low=0., high=1.),
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
         if W_hid_to_sign_add is not None:
             self.sign_add = DenseLayer(incoming, num_units=self.memory_size[1],
-                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=clipped_linear(-1., 1.),
+                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=nonlinearities.ClippedLinear(low=-1., high=1.),
                 name=self.basename + '.sign_add')
             self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
         else:
@@ -239,8 +216,8 @@ class ReadHead(Head):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=OneHot(),
-                 learn_init=True,
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
         super(ReadHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
