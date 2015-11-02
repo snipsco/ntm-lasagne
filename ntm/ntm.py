@@ -85,7 +85,8 @@ class NTMLayer(Layer):
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
-                outputs_t.append(self.heads[i].get_output_for(h_t, params[i], M_t))
+                weights = self.heads[i].get_output_for(h_t, params[i], M_t)
+                outputs_t.append(weights)
 
             # Gradient clipping
             # if self.grad_clipping is not None:
