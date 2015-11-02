@@ -30,7 +30,6 @@ def clipped_linear(a, b):
 class Head(Layer):
     """
     docstring for HeadLayer
-    [h_t, M_t, w_tm1]
     """
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
