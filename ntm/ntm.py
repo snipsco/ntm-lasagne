@@ -64,7 +64,12 @@ class NTMLayer(Layer):
                 M_t *= 1. - T.outer(params[i], self.heads[i].erase.get_output_for(h_tm1))
             # Add
             for i in range(num_write_heads):
-                M_t += T.outer(params[i], self.heads[i].sign_add.get_output_for(h_tm1) * self.heads[i].add.get_output_for(h_tm1))
+                if self.heads[i].sign_add is not None:
+                    sign = self.heads[i].sign_add.get_output_for(h_tm1)
+                else:
+                    sign = 1.
+                add = self.heads[i].add.get_output_for(h_tm1)
+                M_t += T.outer(params[i], sign * add)
             # if self.grad_clipping is not False:
             #     M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
             outputs_t.append(M_t)

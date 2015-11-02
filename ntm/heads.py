@@ -27,7 +27,7 @@ def clipped_linear(a, b):
     return lambda x: T.clip(x, a, b)
 
 
-class Head(MergeLayer):
+class Head(Layer):
     """
     docstring for HeadLayer
     [h_t, M_t, w_tm1]
@@ -58,11 +58,15 @@ class Head(MergeLayer):
 
         self.learn_init = learn_init
 
-        self.sign = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_sign, self.b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
-            name=self.basename + '.sign')
-        self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
-    
+        if W_hid_to_sign is not None:
+            self.sign = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+                W=W_hid_to_sign, self.b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
+                name=self.basename + '.sign')
+            self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
+        else:
+            self.sign = None
+            self.W_hid_to_sign, self.b_hid_to_sign = None, None
+
         self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=clipped_linear(0., 1.),
             name=self.basename + '.key')
@@ -97,7 +101,10 @@ class Head(MergeLayer):
 
     def get_output_for(self, inputs, **kwargs):
         h_t, M_t, w_tm1 = inputs
-        sign_t = self.sign.get_output_for(h_t, **kwargs)
+        if self.sign is not None:
+            sign_t = self.sign.get_output_for(h_t, **kwargs)
+        else:
+            sign_t = 1.
         k_t = self.key.get_output_for(h_t, **kwargs)
         beta_t = self.beta.get_output_for(h_t, **kwargs)
         g_t = self.gate.get_output_for(h_t, **kwargs)
@@ -148,7 +155,7 @@ class WriteHead(Head):
     """
     docstring for WriteHead
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, shifts=(-1, 1),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -170,7 +177,7 @@ class WriteHead(Head):
                  weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
-        super(WriteHead, self).__init__(incomings, shifts,
+        super(WriteHead, self).__init__(incoming, shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
@@ -180,20 +187,24 @@ class WriteHead(Head):
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
     
-        self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+        self.erase = DenseLayer(incoming, num_units=self.memory_size[1],
             W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=T.nnet.hard_sigmoid,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
-        self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+        self.add = DenseLayer(incoming, num_units=self.memory_size[1],
             W=W_hid_to_add, b=b_hid_to_add, nonlinearity=clipped_linear(0., 1.),
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
-        self.sign_add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=clipped_linear(-1., 1.),
-            name=self.basename + '.sign_add')
-        self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
+        if W_hid_to_sign_add is not None:
+            self.sign_add = DenseLayer(incoming, num_units=self.memory_size[1],
+                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=clipped_linear(-1., 1.),
+                name=self.basename + '.sign_add')
+            self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
+        else:
+            self.sign_add = None
+            self.W_hid_to_sign_add, self.b_hid_to_sign_add = None, None
 
     def get_params(self, **tags):
         params = super(WriteHead, self).get_params(**tags)
