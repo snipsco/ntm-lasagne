@@ -23,6 +23,16 @@ class EquiProba(lasagne.init.Initializer):
                 'must be non zero')
         return floatX(np.ones(shape) / M)
 
+class OneHot(lasagne.init.Initializer):
+
+    def sample(self, shape):
+        # TODO: General case, here it only works for 2D
+        M = np.min(shape)
+        arr = np.zeros(shape)
+        arr[:M, :M] += 1 * np.eye(M)
+        return floatX(arr)
+
+
 def clipped_linear(a, b):
     return lambda x: T.clip(x, a, b)
 
@@ -44,7 +54,7 @@ class Head(Layer):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
+                 weights_init=OneHot(),
                  learn_init=True,
                  **kwargs):
 
@@ -56,7 +66,7 @@ class Head(Layer):
 
         if W_hid_to_sign is not None:
             self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
-                W=W_hid_to_sign, self.b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
+                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
                 name=self.basename + '.sign')
             self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
         else:
@@ -121,7 +131,7 @@ class Head(Layer):
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
         w_g = padding.pad(w_g, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g, conv_filter,
-            image_shape=(self.input_shapes[0][0], 1, 1, self.input_shapes[1][0] + pad[0] + pad[1]),
+            image_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
             filter_shape=(1, 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
@@ -169,7 +179,7 @@ class WriteHead(Head):
                  b_hid_to_add=lasagne.init.Constant(0.),
                  W_hid_to_sign_add=lasagne.init.GlorotUniform(),
                  b_hid_to_sign_add=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
+                 weights_init=OneHot(),
                  learn_init=True,
                  **kwargs):
         super(WriteHead, self).__init__(incoming, num_shifts,
@@ -227,7 +237,7 @@ class ReadHead(Head):
                  b_hid_to_shift=lasagne.init.Constant(0.),
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
+                 weights_init=OneHot(),
                  learn_init=True,
                  **kwargs):
         super(ReadHead, self).__init__(incoming, num_shifts,

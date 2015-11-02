@@ -96,30 +96,32 @@ class NTMLayer(Layer):
 
             return outputs_t
 
-        non_seqs = self.controller.non_sequences
-        for head in self.heads:
-            non_seqs += [head.W_hid_to_key, head.b_hid_to_key,
-                head.W_hid_to_beta, head.b_hid_to_beta,
-                head.W_hid_to_gate, head.b_hid_to_gate,
-                head.W_hid_to_shift, head.b_hid_to_shift,
-                head.W_hid_to_gamma, head.b_hid_to_gamma]
-            if isinstance(head, WriteHead):
-                non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
-                    head.W_hid_to_add, head.b_hid_to_add]
-            # non_seqs += self.controller.get_params()
+        # non_seqs = [self.controller.hid_init]
+        # for head in self.heads:
+        #     non_seqs += [head.W_hid_to_sign, head.b_hid_to_sign,
+        #         head.W_hid_to_key, head.b_hid_to_key,
+        #         head.W_hid_to_beta, head.b_hid_to_beta,
+        #         head.W_hid_to_gate, head.b_hid_to_gate,
+        #         head.W_hid_to_shift, head.b_hid_to_shift,
+        #         head.W_hid_to_gamma, head.b_hid_to_gamma]
+        #     if isinstance(head, WriteHead):
+        #         non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
+        #             head.W_hid_to_add, head.b_hid_to_add,
+        #             head.W_hid_to_sign_add, head.b_hid_to_sign_add]
+        #     # non_seqs += self.controller.get_params()
 
         outs_info = [self.memory.memory_init, self.controller.hid_init]
         outs_info += [head.weights_init for head in self.heads]
-        if self.controller.outputs_info is not None:
-            outs_info += self.controller.outputs_info[1:]
+        # if self.controller.outputs_info is not None:
+        #     outs_info += self.controller.outputs_info[1:]
 
-        # QKFIX: truncate the gradient at 40
+        # QKFIX: Remove the strict mode
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
             outputs_info=outs_info,
-            non_sequences=non_seqs,
-            strict=True)
+            # non_sequences=non_seqs,
+            strict=False)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         hid_out = hids[1].dimshuffle(1, 0, 2)

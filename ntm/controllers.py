@@ -11,43 +11,25 @@ import lasagne.utils
 from collections import OrderedDict
 
 
-class Controller(object):
+class Controller(Layer):
     """
     docstring for Controller
     """
-    def __init__(self, incoming, num_units, num_reads, name=None):
-        if isinstance(incoming, tuple):
-            self.input_shape = incoming
-            self.input_layer = None
-        else:
-            self.input_shape = incoming.output_shape
-            self.input_layer = incoming
-
-        self.name = name
-        self.params = OrderedDict()
+    def __init__(self, incoming, num_units, num_reads,
+                 hid_init=lasagne.init.GlorotUniform(),
+                 learn_init=False,
+                 **kwargs):
+        super(Controller, self).__init__(incoming, **kwargs)
+        self.hid_init = self.add_param(hid_init, (1, num_units),
+            name='hid_init', regularizable=False, trainable=learn_init)
         self.num_units = num_units
         self.num_reads = num_reads
-
-    def add_param(self, spec, shape, name=None, **tags):
-        # prefix the param name with the layer name if it exists
-        if name is not None:
-            if self.name is not None:
-                name = "%s.%s" % (self.name, name)
-
-        param = lasagne.utils.create_param(spec, shape, name)
-        # parameters should be trainable and regularizable by default
-        tags['trainable'] = tags.get('trainable', True)
-        tags['regularizable'] = tags.get('regularizable', True)
-        self.params[param] = set(tag for tag, value in tags.items() if value)
-
-        return param
 
     def step(self, input, reads, hidden, *args, **kwargs):
         raise NotImplementedError
 
-    @property
-    def outputs_info(self):
-        return []
+    def get_output_shape_for(self, input_shape):
+        return (input_shape[0], self.num_units)
 
 
 class DenseController(Controller):
@@ -60,9 +42,12 @@ class DenseController(Controller):
                  W_reads_to_hid=lasagne.init.GlorotUniform(),
                  b_reads_to_hid=lasagne.init.Constant(0.),
                  nonlinearity=lasagne.nonlinearities.rectify,
+                 hid_init=lasagne.init.GlorotUniform(),
+                 learn_init=False,
                  **kwargs):
         super(DenseController, self).__init__(incoming, num_units,
-                                              num_reads, **kwargs)
+                                              num_reads, hid_init, learn_init,
+                                              **kwargs)
         self.nonlinearity = (lasagne.nonlinearities.identity if 
                              nonlinearity is None else nonlinearity)
 
@@ -96,9 +81,3 @@ class DenseController(Controller):
     @property
     def outputs_info(self):
         return []
-
-
-if __name__ == '__main__':
-    import lasagne.layers
-    inp = lasagne.layers.InputLayer((1, None, 10))
-    ctrl = DenseController(inp, num_units=100, num_reads=20, name='controller')
