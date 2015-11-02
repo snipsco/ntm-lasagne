@@ -32,7 +32,7 @@ class Head(Layer):
     docstring for HeadLayer
     [h_t, M_t, w_tm1]
     """
-    def __init__(self, incomings, num_shifts=3,
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -49,17 +49,14 @@ class Head(Layer):
                  learn_init=True,
                  **kwargs):
 
-        self.ctrl_layer, self.memory_layer = incomings
-        self.memory_size = helper.get_output_shape(self.memory_layer)
+        self.memory_size = memory_size
         self.basename = kwargs.get('name', 'head')
-        incomings.append(InputLayer((self.ctrl_layer.output_shape[0], \
-            self.memory_size[0]), name=self.basename + '.recurrent'))
-        super(Head, self).__init__(incomings, **kwargs)
+        super(Head, self).__init__(incoming, **kwargs)
 
         self.learn_init = learn_init
 
         if W_hid_to_sign is not None:
-            self.sign = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+            self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
                 W=W_hid_to_sign, self.b_hid_to_sign, nonlinearity=clipped_linear(-1., 1.),
                 name=self.basename + '.sign')
             self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
@@ -67,28 +64,28 @@ class Head(Layer):
             self.sign = None
             self.W_hid_to_sign, self.b_hid_to_sign = None, None
 
-        self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
+        self.key = DenseLayer(incoming, num_units=self.memory_size[1],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=clipped_linear(0., 1.),
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
-        self.beta = DenseLayer(self.ctrl_layer, num_units=1,
+        self.beta = DenseLayer(incoming, num_units=1,
             W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=lasagne.nonlinearities.rectify,
             name=self.basename + '.beta')
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
-        self.gate = DenseLayer(self.ctrl_layer, num_units=1,
+        self.gate = DenseLayer(incoming, num_units=1,
             W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=T.nnet.hard_sigmoid,
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
         self.num_shifts = num_shifts
-        self.shift = DenseLayer(self.ctrl_layer, num_units=num_shifts,
+        self.shift = DenseLayer(incoming, num_units=num_shifts,
             W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=lasagne.nonlinearities.softmax,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
-        self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
+        self.gamma = DenseLayer(incoming, num_units=1,
             W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + lasagne.nonlinearities.rectify(x),
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
@@ -99,8 +96,7 @@ class Head(Layer):
             name='weights_init', trainable=learn_init, regularizable=False)
 
 
-    def get_output_for(self, inputs, **kwargs):
-        h_t, M_t, w_tm1 = inputs
+    def get_output_for(self, h_t, w_tm1, M_t, **kwargs):
         if self.sign is not None:
             sign_t = self.sign.get_output_for(h_t, **kwargs)
         else:
@@ -155,7 +151,7 @@ class WriteHead(Head):
     """
     docstring for WriteHead
     """
-    def __init__(self, incoming, shifts=(-1, 1),
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -177,7 +173,7 @@ class WriteHead(Head):
                  weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
-        super(WriteHead, self).__init__(incoming, shifts,
+        super(WriteHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
@@ -219,7 +215,7 @@ class ReadHead(Head):
     """
     docstring for ReadHead
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -235,7 +231,7 @@ class ReadHead(Head):
                  weights_init=EquiProba(),
                  learn_init=True,
                  **kwargs):
-        super(ReadHead, self).__init__(incomings, shifts,
+        super(ReadHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
