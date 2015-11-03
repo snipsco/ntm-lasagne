@@ -8,81 +8,77 @@ import lasagne.layers.helper as helper
 from lasagne.theano_extensions import padding
 
 import similarities
+import nonlinearities
+import init
 
-from lasagne.utils import floatX
 import numpy as np
 
 
-class EquiProba(lasagne.init.Initializer):
-
-    def sample(self, shape):
-        # TODO: General case, here it only works for 2D
-        M = float(shape[1])
-        if M == 0:
-            raise ValueError('The second dimension '
-                'must be non zero')
-        return floatX(np.ones(shape) / M)
-
-
-class Head(MergeLayer):
+class Head(Layer):
     """
     docstring for HeadLayer
-    [h_t, M_t, w_tm1]
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=nonlinearities.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
-                 learn_init=True,
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
 
-        self.ctrl_layer, self.memory_layer = incomings
-        self.memory_size = helper.get_output_shape(self.memory_layer)
+        self.memory_size = memory_size
         self.basename = kwargs.get('name', 'head')
-        incomings.append(InputLayer((self.ctrl_layer.output_shape[0], \
-            self.memory_size[0]), name=self.basename + '.recurrent'))
-        super(Head, self).__init__(incomings, **kwargs)
+        super(Head, self).__init__(incoming, **kwargs)
 
         self.learn_init = learn_init
-    
-        self.key = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=lasagne.nonlinearities.rectify,
+
+        if W_hid_to_sign is not None:
+            self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
+                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=nonlinearity_sign,
+                name=self.basename + '.sign')
+            self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
+        else:
+            self.sign = None
+            self.W_hid_to_sign, self.b_hid_to_sign = None, None
+
+        self.key = DenseLayer(incoming, num_units=self.memory_size[1],
+            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=nonlinearity_key,
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
-        self.beta = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=lasagne.nonlinearities.rectify,
+        self.beta = DenseLayer(incoming, num_units=1,
+            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=nonlinearity_beta,
             name=self.basename + '.beta')
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
-        self.gate = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=lasagne.nonlinearities.sigmoid,
+        self.gate = DenseLayer(incoming, num_units=1,
+            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=nonlinearity_gate,
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
-        if len(shifts) != 2:
-            raise ValueError('`shifts` must be of length 2 (`%s`.shifts ' +
-                             'has length %d)' % (self.basename, len(shifts)))
-        if shifts[0] > shifts[1]:
-            raise ValueError('`shifts` must be an interval (`%s`.shifts ' +
-                             'has value %s)' % (self.basename, shifts))
-        self.shifts = (int(shifts[0]), int(shifts[1]))
-        self.num_shifts = self.shifts[1] - self.shifts[0] + 1
-        self.shift = DenseLayer(self.ctrl_layer, num_units=self.num_shifts,
-            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=lasagne.nonlinearities.softmax,
+        self.num_shifts = num_shifts
+        self.shift = DenseLayer(incoming, num_units=num_shifts,
+            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=nonlinearity_shift,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
-        self.gamma = DenseLayer(self.ctrl_layer, num_units=1,
-            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + lasagne.nonlinearities.rectify(x),
+        self.gamma = DenseLayer(incoming, num_units=1,
+            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=nonlinearity_gamma,
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
@@ -92,8 +88,11 @@ class Head(MergeLayer):
             name='weights_init', trainable=learn_init, regularizable=False)
 
 
-    def get_output_for(self, inputs, **kwargs):
-        h_t, M_t, w_tm1 = inputs
+    def get_output_for(self, h_t, w_tm1, M_t, **kwargs):
+        if self.sign is not None:
+            sign_t = self.sign.get_output_for(h_t, **kwargs)
+        else:
+            sign_t = 1.
         k_t = self.key.get_output_for(h_t, **kwargs)
         beta_t = self.beta.get_output_for(h_t, **kwargs)
         g_t = self.gate.get_output_for(h_t, **kwargs)
@@ -102,7 +101,7 @@ class Head(MergeLayer):
 
         # Content Adressing (3.3.1)
         beta_t = T.addbroadcast(beta_t, 1)
-        betaK = beta_t * similarities.cosine_similarity(k_t, M_t)
+        betaK = beta_t * similarities.cosine_similarity(sign_t * k_t, M_t)
         w_c = lasagne.nonlinearities.softmax(betaK)
 
         # Interpolation (3.3.2)
@@ -115,7 +114,7 @@ class Head(MergeLayer):
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
         w_g = padding.pad(w_g, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g, conv_filter,
-            image_shape=(self.input_shapes[0][0], 1, 1, self.input_shapes[1][0] + pad[0] + pad[1]),
+            image_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
             filter_shape=(1, 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
@@ -123,13 +122,15 @@ class Head(MergeLayer):
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 1)
-        w = T.pow(w_tilde + 1e-9, gamma_t)
+        w = T.pow(w_tilde + 1e-6, gamma_t)
         w /= T.sum(w)
 
         return w
 
     def get_params(self, **tags):
         params = super(Head, self).get_params(**tags)
+        if self.sign is not None:
+            params += self.sign.get_params(**tags)
         params += self.key.get_params(**tags)
         params += self.beta.get_params(**tags)
         params += self.gate.get_params(**tags)
@@ -143,48 +144,72 @@ class WriteHead(Head):
     """
     docstring for WriteHead
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=nonlinearities.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  W_hid_to_erase=lasagne.init.GlorotUniform(),
                  b_hid_to_erase=lasagne.init.Constant(0.),
+                 nonlinearity_erase=nonlinearities.hard_sigmoid,
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
-                 learn_init=True,
+                 nonlinearity_add=nonlinearities.ClippedLinear(low=0., high=1.),
+                 W_hid_to_sign_add=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign_add=lasagne.init.Constant(0.),
+                 nonlinearity_sign_add=nonlinearities.ClippedLinear(low=-1., high=1.),
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
-        super(WriteHead, self).__init__(incomings, shifts,
-            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
-            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
-            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
-            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
-            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+        super(WriteHead, self).__init__(incoming, num_shifts,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
+            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
+            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
+            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
+            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
     
-        self.erase = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=lasagne.nonlinearities.sigmoid,
+        self.erase = DenseLayer(incoming, num_units=self.memory_size[1],
+            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=nonlinearity_erase,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
-        # TODO: ReLu nonlinearity for self.add
-        self.add = DenseLayer(self.ctrl_layer, num_units=self.memory_size[1],
-            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=lasagne.nonlinearities.rectify,
+        self.add = DenseLayer(incoming, num_units=self.memory_size[1],
+            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=nonlinearity_add,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
+
+        if W_hid_to_sign_add is not None:
+            self.sign_add = DenseLayer(incoming, num_units=self.memory_size[1],
+                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=nonlinearity_sign_add,
+                name=self.basename + '.sign_add')
+            self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
+        else:
+            self.sign_add = None
+            self.W_hid_to_sign_add, self.b_hid_to_sign_add = None, None
 
     def get_params(self, **tags):
         params = super(WriteHead, self).get_params(**tags)
         params += self.erase.get_params(**tags)
         params += self.add.get_params(**tags)
+        if self.sign_add is not None:
+            params += self.sign_add.get_params(**tags)
 
         return params
 
@@ -193,25 +218,34 @@ class ReadHead(Head):
     """
     docstring for ReadHead
     """
-    def __init__(self, incomings, shifts=(-1, 1),
+    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=T.nnet.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
-                 weights_init=EquiProba(),
-                 learn_init=True,
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
+                 weights_init=init.OneHot(),
+                 learn_init=False,
                  **kwargs):
-        super(ReadHead, self).__init__(incomings, shifts,
-            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
-            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
-            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
-            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
-            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+        super(ReadHead, self).__init__(incoming, num_shifts,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
+            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
+            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
+            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
+            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)

@@ -4,6 +4,7 @@ import numpy as np
 import random
 
 import matplotlib.pyplot as plt
+import pandas as pd
 
 from lasagne.layers import InputLayer, DenseLayer, ReshapeLayer
 import lasagne.layers
@@ -15,88 +16,114 @@ from ntm.ntm import NTMLayer
 from ntm.memory import Memory
 from ntm.controllers import DenseController
 from ntm.heads import WriteHead, ReadHead
-import ntm.updates
-
-def make_example(size, length):
-    sequence = np.random.binomial(1, 0.5, (length, size)).astype(np.uint8)
-    example_input = np.zeros((1, 2 * length + 1, size + 1))
-    example_output = np.zeros((1, 2 * length + 1, size + 1))
-
-    example_input[0, :length, :size] = sequence
-    example_output[0, length + 1:, :size] = sequence
-    example_input[0, length, -1] = 1
-
-    return example_input, example_output
+from ntm.tasks import copy
+from ntm.updates import graves_rmsprop
 
 input_var = T.dtensor3('input')
 target = T.dtensor3('target')
 
-# Network parameters
 n = 20
 num_units = 100
 l = 8
 memory_shape = (128, 20)
 
-# Network definition
 l_input = InputLayer((1, None, l + 1), input_var=input_var)
 _, seqlen, _ = l_input.input_var.shape
-# Neural Turing Machine layer
+# Neural Turing Machine Layer
 memory = Memory(memory_shape, name='memory', learn_init=False)
 controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
-    nonlinearity=lasagne.nonlinearities.sigmoid, learn_init=False,
+    nonlinearity=lasagne.nonlinearities.rectify,
     name='controller')
 heads = [
-    WriteHead([controller, memory], shifts=(-1, 1), name='write', learn_init=False),
-    ReadHead([controller, memory], shifts=(-1, 1), name='read', learn_init=False)
+    WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
+        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, W_hid_to_sign_add=None,
+        nonlinearity_add=lasagne.nonlinearities.tanh),
+    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read',
+        learn_init=False, W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-      heads=heads, grad_clipping=10.)
+      heads=heads)
 l_shp = ReshapeLayer(l_ntm, (-1, num_units))
 l_dense = DenseLayer(l_shp, num_units=l + 1, nonlinearity=lasagne.nonlinearities.sigmoid, \
     name='dense')
 l_out = ReshapeLayer(l_dense, (1, seqlen, l + 1))
 
-# Loss function
-pred = lasagne.layers.get_output(l_out)
-pred = T.clip(pred, 1e-10, 1. - 1e-10)
+pred = T.clip(lasagne.layers.get_output(l_out), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
-# Gradient descent updates
+
 params = lasagne.layers.get_all_params(l_out, trainable=True)
-# updates = ntm.updates.graves_rmsprop(loss, params, beta=1e-3)
-updates = lasagne.updates.adam(loss, params, learning_rate=1e-4)
+updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
-pred_fn = theano.function([input_var], pred)
+ntm_fn = theano.function([input_var], pred)
+ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
-# Training
 try:
     max_sequences = 500000
-    max_length = 1
+    max_length = 5
     scores = []
+    all_scores = []
     for batch in range(max_sequences):
-        # if batch == 200000:
-        #     max_length = 20
         length = random.randint(1, max_length)
-        i, o = make_example(8, length)
+        i, o = copy(8, length)
         score = train_fn(i, o)
         scores.append(score)
-        if np.isnan(score):
-            break
+        all_scores.append(score)
         if batch % 500 == 0:
             print 'Batch #%d: %.6f' % (batch, np.mean(scores))
             scores = []
 except KeyboardInterrupt:
     pass
 
+def learning_curve():
+    sc = pd.Series(all_scores)
+    ma = pd.rolling_mean(sc, window=500)
 
-def visualize(length):
-    i, o = make_example(8, length)
-    pred_o = pred_fn(i)
+    ax = plt.subplot(1, 1, 1)
+    ax.plot(sc.index, sc, color='lightgray')
+    ax.plot(ma.index, ma, color='red')
+    ax.set_yscale('log')
+    ax.set_xlim(sc.index.min(), sc.index.max())
+    plt.show()
 
-    plt.subplot2grid((2, 1), (0, 0))
-    plt.imshow(o[0].T, interpolation='nearest')
+def viz(length):
+    example_input, example_output = copy(l, length)
+    example_prediction = ntm_fn(example_input)
+    example_ntm = ntm_layer_fn(example_input)
 
-    plt.subplot2grid((2, 1), (1, 0))
-    plt.imshow(pred_o[0].T, interpolation='nearest')
+    subplot_shape = (3, 3)
+    ax1 = plt.subplot2grid(subplot_shape, (0, 2))
+    ax1.imshow(example_input[0].T, interpolation='nearest', cmap='bone')
+    ax1.set_title('Input')
+    ax1.get_xaxis().set_visible(False)
+    ax1.get_yaxis().set_visible(False)
+
+    ax2 = plt.subplot2grid(subplot_shape, (1, 2))
+    ax2.imshow(example_output[0].T, interpolation='nearest', cmap='bone')
+    ax2.set_title('Output')
+    ax2.get_xaxis().set_visible(False)
+    ax2.get_yaxis().set_visible(False)
+
+    ax3 = plt.subplot2grid(subplot_shape, (2, 2))
+    ax3.imshow(example_prediction[0].T, interpolation='nearest', cmap='bone')
+    ax3.set_title('Prediction')
+    ax3.get_xaxis().set_visible(False)
+    ax3.get_yaxis().set_visible(False)
+
+    ax4 = plt.subplot2grid(subplot_shape, (0, 1), rowspan=3)
+    ax4.imshow(example_ntm[3][0].T, interpolation='nearest', cmap='bone')
+    ax4.set_title('Read Weights')
+    ax4.get_xaxis().set_visible(False)
+    ax4.plot([length - 0.5, length - 0.5], [0, 127], color='red')
+    ax4.set_xlim([-0.5, 2 * length + 0.5])
+    ax4.set_ylim([-0.5, 127.5])
+
+    ax5 = plt.subplot2grid(subplot_shape, (0, 0), rowspan=3)
+    ax5.imshow(example_ntm[2][0].T, interpolation='nearest', cmap='bone')
+    ax5.set_title('Write Weights')
+    ax5.get_xaxis().set_visible(False)
+    ax5.plot([length - 0.5, length - 0.5], [0, 127], color='red')
+    ax5.set_xlim([-0.5, 2 * length + 0.5])
+    ax5.set_ylim([-0.5, 127.5])
 
     plt.show()

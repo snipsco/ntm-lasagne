@@ -18,6 +18,8 @@ def graves_rmsprop(loss_or_grads, params, chi=0.95, alpha=0.9, beta=1e-4, epsilo
 
     """
     grads = get_or_compute_grads(loss_or_grads, params)
+    # Gradient clipping
+    grads = [T.clip(g, -10., 10.) for g in grads]
     updates = OrderedDict()
 
     for param, grad in zip(params, grads):

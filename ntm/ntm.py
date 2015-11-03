@@ -39,7 +39,7 @@ class NTMLayer(Layer):
 
         return params
 
-    def get_output_for(self, input, **kwargs):
+    def get_output_for(self, input, get_details=False, **kwargs):
 
         input = input.dimshuffle(1, 0, 2)
 
@@ -61,12 +61,16 @@ class NTMLayer(Layer):
             M_t = M_tm1
             # Erase
             for i in range(num_write_heads):
-                M_t *= 1. - T.outer(params[i], self.heads[i].erase.get_output_for(h_tm1))
+                erase = self.heads[i].erase.get_output_for(h_tm1)
+                M_t *= 1. - T.outer(params[i], erase)
             # Add
             for i in range(num_write_heads):
-                M_t += T.outer(params[i], self.heads[i].add.get_output_for(h_tm1))
-            # if self.grad_clipping is not False:
-            #     M_t = theano.gradient.grad_clip(M_t, -self.grad_clipping, self.grad_clipping)
+                if self.heads[i].sign_add is not None:
+                    sign = self.heads[i].sign_add.get_output_for(h_tm1)
+                else:
+                    sign = 1.
+                add = self.heads[i].add.get_output_for(h_tm1)
+                M_t += T.outer(params[i], sign * add)
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
@@ -76,55 +80,55 @@ class NTMLayer(Layer):
             r_t = T.concatenate(read_vectors)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
-            if self.controller.outputs_info is None or not self.controller.outputs_info:
-                ctrl_tm1 = []
-            else:
-                num_ctrl_req = len(self.controller.outputs_info) - 1
-                ctrl_tm1 = [h_tm1] + list(params[num_heads:num_heads + num_ctrl_req])
-            ctrl_t = self.controller.step(x_t, r_t, *(ctrl_tm1 + self.controller.non_sequences))
-            outputs_t.append(ctrl_t[0])
-            # outputs_t.append(h_tm1)
+            h_t, ctrl_t = self.controller.step(x_t, r_t, h_tm1)
+            outputs_t.append(h_t)
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
-                outputs_t.append(self.heads[i].get_output_for([ctrl_t[0], M_t, params[i]]))
+                weights = self.heads[i].get_output_for(h_t, params[i], M_t)
+                outputs_t.append(weights)
 
             # Gradient clipping
-            if self.grad_clipping is not None:
-                outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
-                    self.grad_clipping) for param in outputs_t]
+            # if self.grad_clipping is not None:
+            #     outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
+            #         self.grad_clipping) for param in outputs_t]
 
-            outputs_t += ctrl_t[1:]
+            outputs_t += ctrl_t
 
             return outputs_t
 
-        non_seqs = self.controller.non_sequences
-        for head in self.heads:
-            non_seqs += [head.W_hid_to_key, head.b_hid_to_key,
-                head.W_hid_to_beta, head.b_hid_to_beta,
-                head.W_hid_to_gate, head.b_hid_to_gate,
-                head.W_hid_to_shift, head.b_hid_to_shift,
-                head.W_hid_to_gamma, head.b_hid_to_gamma]
-            if isinstance(head, WriteHead):
-                non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
-                    head.W_hid_to_add, head.b_hid_to_add]
-            # non_seqs += self.controller.get_params()
+        # non_seqs = [self.controller.hid_init]
+        # for head in self.heads:
+        #     non_seqs += [head.W_hid_to_sign, head.b_hid_to_sign,
+        #         head.W_hid_to_key, head.b_hid_to_key,
+        #         head.W_hid_to_beta, head.b_hid_to_beta,
+        #         head.W_hid_to_gate, head.b_hid_to_gate,
+        #         head.W_hid_to_shift, head.b_hid_to_shift,
+        #         head.W_hid_to_gamma, head.b_hid_to_gamma]
+        #     if isinstance(head, WriteHead):
+        #         non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
+        #             head.W_hid_to_add, head.b_hid_to_add,
+        #             head.W_hid_to_sign_add, head.b_hid_to_sign_add]
+        #     # non_seqs += self.controller.get_params()
 
         outs_info = [self.memory.memory_init, self.controller.hid_init]
         outs_info += [head.weights_init for head in self.heads]
-        if self.controller.outputs_info is not None:
-            outs_info += self.controller.outputs_info[1:]
+        # if self.controller.outputs_info is not None:
+        #     outs_info += self.controller.outputs_info[1:]
 
-        # QKFIX: truncate the gradient at 40
+        # QKFIX: Remove the strict mode
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
             outputs_info=outs_info,
-            non_sequences=non_seqs,
-            strict=True)
+            # non_sequences=non_seqs,
+            strict=False)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
-        hid_out = hids[1].dimshuffle(1, 0, 2)
+        if get_details:
+            hid_out = [hid.dimshuffle(1, 0, 2) for hid in hids]
+        else:
+            hid_out = hids[1].dimshuffle(1, 0, 2)
 
         return hid_out
 
