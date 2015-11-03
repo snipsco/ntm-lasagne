@@ -35,8 +35,11 @@ controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_
     nonlinearity=lasagne.nonlinearities.rectify,
     name='controller')
 heads = [
-    WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False),
-    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False)
+    WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
+        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, W_hid_to_sign_add=None,
+        nonlinearity_add=lasagne.nonlinearities.tanh),
+    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read',
+        learn_init=False, W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
       heads=heads)

@@ -10,3 +10,6 @@ class ClippedLinear(object):
     
     def __call__(self, x):
         return T.clip(x, self.low, self.high)
+
+def hard_sigmoid(x):
+    return T.nnet.hard_sigmoid(x)

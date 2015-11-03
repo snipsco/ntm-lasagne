@@ -21,16 +21,22 @@ class Head(Layer):
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=nonlinearities.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
@@ -43,7 +49,7 @@ class Head(Layer):
 
         if W_hid_to_sign is not None:
             self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
-                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=nonlinearities.ClippedLinear(low=-1., high=1.),
+                W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=nonlinearity_sign,
                 name=self.basename + '.sign')
             self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
         else:
@@ -51,28 +57,28 @@ class Head(Layer):
             self.W_hid_to_sign, self.b_hid_to_sign = None, None
 
         self.key = DenseLayer(incoming, num_units=self.memory_size[1],
-            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=nonlinearities.ClippedLinear(low=0., high=1.),
+            W=W_hid_to_key, b=b_hid_to_key, nonlinearity=nonlinearity_key,
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
         
         self.beta = DenseLayer(incoming, num_units=1,
-            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=lasagne.nonlinearities.rectify,
+            W=W_hid_to_beta, b=b_hid_to_beta, nonlinearity=nonlinearity_beta,
             name=self.basename + '.beta')
         self.W_hid_to_beta, self.b_hid_to_beta = self.beta.W, self.beta.b
 
         self.gate = DenseLayer(incoming, num_units=1,
-            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=T.nnet.hard_sigmoid,
+            W=W_hid_to_gate, b=b_hid_to_gate, nonlinearity=nonlinearity_gate,
             name=self.basename + '.gate')
         self.W_hid_to_gate, self.b_hid_to_gate = self.gate.W, self.gate.b
 
         self.num_shifts = num_shifts
         self.shift = DenseLayer(incoming, num_units=num_shifts,
-            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=lasagne.nonlinearities.softmax,
+            W=W_hid_to_shift, b=b_hid_to_shift, nonlinearity=nonlinearity_shift,
             name=self.basename + '.shift')
         self.W_hid_to_shift, self.b_hid_to_shift = self.shift.W, self.shift.b
 
         self.gamma = DenseLayer(incoming, num_units=1,
-            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=lambda x: 1. + lasagne.nonlinearities.rectify(x),
+            W=W_hid_to_gamma, b=b_hid_to_gamma, nonlinearity=nonlinearity_gamma,
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
@@ -141,48 +147,57 @@ class WriteHead(Head):
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=nonlinearities.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  W_hid_to_erase=lasagne.init.GlorotUniform(),
                  b_hid_to_erase=lasagne.init.Constant(0.),
+                 nonlinearity_erase=nonlinearities.hard_sigmoid,
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
+                 nonlinearity_add=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_sign_add=lasagne.init.GlorotUniform(),
                  b_hid_to_sign_add=lasagne.init.Constant(0.),
+                 nonlinearity_sign_add=nonlinearities.ClippedLinear(low=-1., high=1.),
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
         super(WriteHead, self).__init__(incoming, num_shifts,
-            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
-            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
-            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
-            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
-            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
-            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
+            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
+            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
+            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
+            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
     
         self.erase = DenseLayer(incoming, num_units=self.memory_size[1],
-            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=T.nnet.hard_sigmoid,
+            W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=nonlinearity_erase,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
         self.add = DenseLayer(incoming, num_units=self.memory_size[1],
-            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=nonlinearities.ClippedLinear(low=0., high=1.),
+            W=W_hid_to_add, b=b_hid_to_add, nonlinearity=nonlinearity_add,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
         if W_hid_to_sign_add is not None:
             self.sign_add = DenseLayer(incoming, num_units=self.memory_size[1],
-                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=nonlinearities.ClippedLinear(low=-1., high=1.),
+                W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=nonlinearity_sign_add,
                 name=self.basename + '.sign_add')
             self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
         else:
@@ -206,25 +221,31 @@ class ReadHead(Head):
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
                  W_hid_to_sign=lasagne.init.GlorotUniform(),
                  b_hid_to_sign=lasagne.init.Constant(0.),
+                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
+                 nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
                  W_hid_to_beta=lasagne.init.GlorotUniform(),
                  b_hid_to_beta=lasagne.init.Constant(0.),
+                 nonlinearity_beta=lasagne.nonlinearities.rectify,
                  W_hid_to_gate=lasagne.init.GlorotUniform(),
                  b_hid_to_gate=lasagne.init.Constant(0.),
+                 nonlinearity_gate=T.nnet.hard_sigmoid,
                  W_hid_to_shift=lasagne.init.GlorotUniform(),
                  b_hid_to_shift=lasagne.init.Constant(0.),
+                 nonlinearity_shift=lasagne.nonlinearities.softmax,
                  W_hid_to_gamma=lasagne.init.GlorotUniform(),
                  b_hid_to_gamma=lasagne.init.Constant(0.),
+                 nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
         super(ReadHead, self).__init__(incoming, num_shifts,
-            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign,
-            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key,
-            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta,
-            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate,
-            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift,
-            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma,
+            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
+            W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
+            W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
+            W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
+            W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
+            W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init,
             **kwargs)
