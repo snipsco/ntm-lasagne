@@ -56,6 +56,7 @@ updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
+ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
 try:
     max_sequences = 500000
@@ -85,14 +86,44 @@ def learning_curve():
     ax.set_xlim(sc.index.min(), sc.index.max())
     plt.show()
 
-def viz(n):
-    i, o = copy(8, n)
-    plt.subplot2grid((3, 1), (0, 0))
-    plt.imshow(i[0].T, interpolation='nearest', cmap='bone')
-    
-    plt.subplot2grid((3, 1), (1, 0))
-    plt.imshow(o[0].T, interpolation='nearest', cmap='bone')
+def viz(length):
+    example_input, example_output = copy(l, length)
+    example_prediction = ntm_fn(example_input)
+    example_ntm = ntm_layer_fn(example_input)
 
-    plt.subplot2grid((3, 1), (2, 0))
-    plt.imshow(ntm_fn(i)[0].T, interpolation='nearest', cmap='bone')
+    subplot_shape = (3, 3)
+    ax1 = plt.subplot2grid(subplot_shape, (0, 2))
+    ax1.imshow(example_input[0].T, interpolation='nearest', cmap='bone')
+    ax1.set_title('Input')
+    ax1.get_xaxis().set_visible(False)
+    ax1.get_yaxis().set_visible(False)
+
+    ax2 = plt.subplot2grid(subplot_shape, (1, 2))
+    ax2.imshow(example_output[0].T, interpolation='nearest', cmap='bone')
+    ax2.set_title('Output')
+    ax2.get_xaxis().set_visible(False)
+    ax2.get_yaxis().set_visible(False)
+
+    ax3 = plt.subplot2grid(subplot_shape, (2, 2))
+    ax3.imshow(example_prediction[0].T, interpolation='nearest', cmap='bone')
+    ax3.set_title('Prediction')
+    ax3.get_xaxis().set_visible(False)
+    ax3.get_yaxis().set_visible(False)
+
+    ax4 = plt.subplot2grid(subplot_shape, (0, 1), rowspan=3)
+    ax4.imshow(example_ntm[3][0].T, interpolation='nearest', cmap='bone')
+    ax4.set_title('Read Weights')
+    ax4.get_xaxis().set_visible(False)
+    ax4.plot([length - 0.5, length - 0.5], [0, 127], color='red')
+    ax4.set_xlim([-0.5, 2 * length + 0.5])
+    ax4.set_ylim([-0.5, 127.5])
+
+    ax5 = plt.subplot2grid(subplot_shape, (0, 0), rowspan=3)
+    ax5.imshow(example_ntm[2][0].T, interpolation='nearest', cmap='bone')
+    ax5.set_title('Write Weights')
+    ax5.get_xaxis().set_visible(False)
+    ax5.plot([length - 0.5, length - 0.5], [0, 127], color='red')
+    ax5.set_xlim([-0.5, 2 * length + 0.5])
+    ax5.set_ylim([-0.5, 127.5])
+
     plt.show()
