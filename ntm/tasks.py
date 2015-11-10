@@ -20,10 +20,25 @@ def copy_repeat(size, length, repeats):
     for j in range(repeats):
         example_output[0, (j + 1) * length + 2:\
         (j + 2) * length + 2, :size] = sequence
-    example_input[0, length, -2] = repeats
+    example_input[0, length, -2] = repeats / 20.0
     example_input[0, length + 1, -1] = 1
 
     return example_input, example_output
+
+def copy_repeat_alt(size, length, repeats):
+    sequence = np.random.binomial(1, 0.5, (length, size)).astype(np.uint8)
+    example_input = np.zeros((1, (repeats + 1) * length + repeats + 1, size + 2))
+    example_output = np.zeros((1, (repeats + 1) * length + repeats + 1, size + 2))
+
+    example_input[0, :length, :size] = sequence
+    for j in range(repeats):
+        example_output[0, (j + 1) * length + repeats + 1:\
+        (j + 2) * length + repeats + 1, :size] = sequence
+    example_input[0, length:length + repeats, -2] = 1
+    example_input[0, length + repeats, -1] = 1
+
+    return example_input, example_output
+
 
 def associative_recall(size, item_length, num_items):
     items = np.random.binomial(1, 0.5, (item_length, size, num_items)).astype(np.uint8)
