@@ -26,6 +26,11 @@ class Controller(Layer):
         self.num_reads = num_reads
 
     def step(self, input, reads, hidden, *args, **kwargs):
+        """
+        Returns (output, state) where
+            - 'output' is the true hidden state returned by the controller
+            - 'state' is the augmented hidden state (eg. state + cell for LSTM)
+        """
         raise NotImplementedError
 
     def get_output_shape_for(self, input_shape):
@@ -76,7 +81,8 @@ class DenseController(Controller):
             activation = activation + self.b_in_to_hid.dimshuffle('x', 0)
         if self.b_reads_to_hid is not None:
             activation = activation + self.b_reads_to_hid.dimshuffle('x', 0)
-        return self.nonlinearity(activation), []
+        state = self.nonlinearity(activation)
+        return state, state
 
     @property
     def outputs_info(self):

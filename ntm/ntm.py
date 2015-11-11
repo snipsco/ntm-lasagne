@@ -43,7 +43,7 @@ class NTMLayer(Layer):
 
         input = input.dimshuffle(1, 0, 2)
 
-        def step(x_t, M_tm1, h_tm1, *params):
+        def step(x_t, M_tm1, h_tm1, state_tm1, *params):
             # In the list params there are, in that order
             #   - w_tm1 for all the writing heads
             #   - w_tm1 for all the reading heads
@@ -80,8 +80,9 @@ class NTMLayer(Layer):
             r_t = T.concatenate(read_vectors)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
-            h_t, ctrl_t = self.controller.step(x_t, r_t, h_tm1)
+            h_t, state_t = self.controller.step(x_t, r_t, state_tm1)
             outputs_t.append(h_t)
+            outputs_t.append(state_t)
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
@@ -92,8 +93,6 @@ class NTMLayer(Layer):
             # if self.grad_clipping is not None:
             #     outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
             #         self.grad_clipping) for param in outputs_t]
-
-            outputs_t += ctrl_t
 
             return outputs_t
 
@@ -111,7 +110,9 @@ class NTMLayer(Layer):
         #             head.W_hid_to_sign_add, head.b_hid_to_sign_add]
         #     # non_seqs += self.controller.get_params()
 
-        outs_info = [self.memory.memory_init, self.controller.hid_init]
+        # TODO: hid_init and state_init for the Controller
+        # QKFIX: Duplicate controller.hid_init for FeedForward Controller
+        outs_info = [self.memory.memory_init, self.controller.hid_init, self.controller.hid_init]
         outs_info += [head.weights_init for head in self.heads]
         # if self.controller.outputs_info is not None:
         #     outs_info += self.controller.outputs_info[1:]
