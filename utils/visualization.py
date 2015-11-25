@@ -56,9 +56,10 @@ class Dashboard(object):
             ax4.set_title('Write Weights')
             ax4.get_xaxis().set_visible(False)
             for marker in self.markers:
+                marker_style = marker.get('style', {})
                 ax4.plot([marker['location'](params), \
                     marker['location'](params)], [0, \
-                    self.memory_shape[0] - 1], color=marker['color'])
+                    self.memory_shape[0] - 1], **marker_style)
             ax4.set_xlim([-0.5, example_input.shape[1] - 0.5])
             ax4.set_ylim([-0.5, self.memory_shape[0] - 0.5])   
 
@@ -68,9 +69,10 @@ class Dashboard(object):
             ax5.set_title('Read Weights')
             ax5.get_xaxis().set_visible(False)
             for marker in self.markers:
+                marker_style = marker.get('style', {})
                 ax5.plot([marker['location'](params), \
                     marker['location'](params)], [0, \
-                    self.memory_shape[0] - 1], color=marker['color'])
+                    self.memory_shape[0] - 1], **marker_style)
             ax5.set_xlim([-0.5, example_input.shape[1] - 0.5])
             ax5.set_ylim([-0.5, self.memory_shape[0] - 0.5])
 
