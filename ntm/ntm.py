@@ -61,15 +61,15 @@ class NTMLayer(Layer):
             M_t = M_tm1
             # Erase
             for i in range(num_write_heads):
-                erase = self.heads[i].erase.get_output_for(h_tm1)
+                erase = self.heads[i].erase.get_output_for(h_tm1, **kwargs)
                 M_t *= 1. - T.outer(params[i], erase)
             # Add
             for i in range(num_write_heads):
                 if self.heads[i].sign_add is not None:
-                    sign = self.heads[i].sign_add.get_output_for(h_tm1)
+                    sign = self.heads[i].sign_add.get_output_for(h_tm1, **kwargs)
                 else:
                     sign = 1.
-                add = self.heads[i].add.get_output_for(h_tm1)
+                add = self.heads[i].add.get_output_for(h_tm1, **kwargs)
                 M_t += T.outer(params[i], sign * add)
             outputs_t.append(M_t)
 
@@ -86,7 +86,7 @@ class NTMLayer(Layer):
 
             # Update the weights (using h_t, M_t & w_tm1)
             for i in range(num_heads):
-                weights = self.heads[i].get_output_for(h_t, params[i], M_t)
+                weights = self.heads[i].get_output_for(h_t, params[i], M_t, **kwargs)
                 outputs_t.append(weights)
 
             # Gradient clipping
