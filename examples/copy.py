@@ -53,13 +53,13 @@ pred = T.clip(lasagne.layers.get_output(l_out), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
 
 params = lasagne.layers.get_all_params(l_out, trainable=True)
-updates = graves_rmsprop(loss, params, beta=1e-3)
+updates = graves_rmsprop(loss, params, beta=1e-4)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
-generator = CopyTask(max_iter=500000, size=8, max_length=5)
+generator = CopyTask(max_iter=500000, size=size, max_length=5)
 
 try:
     scores, all_scores = [], []
@@ -79,5 +79,6 @@ markers = [
         'color': 'red'
     }
 ]
+from palettable.cubehelix import jim_special_16
 dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
-    memory_shape=memory_shape, markers=markers)
+    memory_shape=memory_shape, markers=markers, cmap=jim_special_16.mpl_colormap)

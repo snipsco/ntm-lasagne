@@ -60,13 +60,14 @@ class CopyTask(Task):
 class RepeatCopyTask(Task):
 
     def __init__(self, size, max_length, max_repeats=20, min_length=1, \
-        min_repeats=1, max_iter=None):
+        min_repeats=1, unary=False, max_iter=None):
         super(RepeatCopyTask, self).__init__(max_iter=max_iter)
         self.size = size
         self.min_length = min_length
         self.max_length = max_length
         self.min_repeats = min_repeats
         self.max_repeats = max_repeats
+        self.unary = unary
 
     def sample_params(self, length=None, repeats=None):
         if length is None:
@@ -77,17 +78,21 @@ class RepeatCopyTask(Task):
 
     def sample(self, length, repeats):
         sequence = np.random.binomial(1, 0.5, (length, self.size))
-        example_input = np.zeros((1, (repeats + 1) * length + 2, \
-            self.size + 2), dtype=theano.config.floatX)
-        example_output = np.zeros((1, (repeats + 1) * length + 2, \
-            self.size + 2), dtype=theano.config.floatX)
+        num_repeats_length = repeats if self.unary else 1
+        example_input = np.zeros((1, (repeats + 1) * length + \
+            num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
+        example_output = np.zeros((1, (repeats + 1) * length + \
+            num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
 
         example_input[0, :length, :self.size] = sequence
         for j in range(repeats):
-            example_output[0, (j + 1) * length + 2: (j + 2) * length + 2, \
-            :self.size] = sequence
-        example_input[0, length, -2] = repeats / float(self.max_repeats)
-        example_input[0, length + 1, -1] = 1
+            example_output[0, (j + 1) * length + num_repeats_length + 1:\
+            (j + 2) * length + num_repeats_length + 1, :self.size] = sequence
+        if self.unary:
+            example_input[0, length:length + repeats, -2] = 1
+        else:
+            example_input[0, length, -2] = repeats / float(self.max_repeats)
+        example_input[0, length + num_repeats_length, -1] = 1
 
         return example_input, example_output
 
