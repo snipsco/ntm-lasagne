@@ -38,9 +38,9 @@ controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_
 heads = [
     WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
         W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, W_hid_to_sign_add=None,
-        nonlinearity_add=lasagne.nonlinearities.tanh),
-    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read',
-        learn_init=False, W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh)
+        nonlinearity_add=lasagne.nonlinearities.tanh, p=0.),
+    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
+        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, p=0.3)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
       heads=heads)
@@ -50,14 +50,15 @@ l_dense = DenseLayer(l_shp, num_units=size + 2, nonlinearity=lasagne.nonlinearit
 l_out = ReshapeLayer(l_dense, (1, seqlen, size + 2))
 
 pred = T.clip(lasagne.layers.get_output(l_out), 1e-10, 1. - 1e-10)
+test_pred = T.clip(lasagne.layers.get_output(l_out, deterministic=True), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
 
 params = lasagne.layers.get_all_params(l_out, trainable=True)
 updates = graves_rmsprop(loss, params, beta=1e-4)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
-ntm_fn = theano.function([input_var], pred)
-ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
+ntm_fn = theano.function([input_var], test_pred)
+ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 generator = RepeatCopyTask(max_iter=500000, size=size, min_length=3, \
     max_length=5, max_repeats=5, unary=True)
