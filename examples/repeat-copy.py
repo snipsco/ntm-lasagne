@@ -40,7 +40,7 @@ heads = [
         W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, W_hid_to_sign_add=None,
         nonlinearity_add=lasagne.nonlinearities.tanh, p=0.),
     ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
-        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, p=0.3)
+        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.tanh, p=0.5)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
       heads=heads)
