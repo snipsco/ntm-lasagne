@@ -163,15 +163,15 @@ class DynamicNGramsTask(Task):
         return {'length': length}
 
     def sample(self, length=None):
-        sequence = np.zeros((1, length + 1, 1), dtype=theano.config.floatX)
-        head = np.random.binomial(1, 0.5, self.ngrams)
-        sequence[0, :self.ngrams, 0] = head
+        sequence = np.zeros((self.batch_size, length + 1, 1), dtype=theano.config.floatX)
+        head = np.random.binomial(1, 0.5, (self.batch_size, self.ngrams))
+        sequence[:, :self.ngrams, 0] = head
         index = np.dot(head, 1 << (np.arange(self.ngrams, 0, -1) - 1))
         mask = (1 << (self.ngrams - 1)) - 1
 
         for j in range(self.ngrams, length + 1):
             b = np.random.binomial(1, self.table[index])
-            sequence[0, j, 0] = b
+            sequence[:, j, 0] = b
             index = ((index & mask) << 1) + b
 
         return sequence[:,:-1], sequence[:,1:]
