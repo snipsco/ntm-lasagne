@@ -78,22 +78,22 @@ class RepeatCopyTask(Task):
         return {'length': length, 'repeats': repeats}
 
     def sample(self, length, repeats):
-        sequence = np.random.binomial(1, 0.5, (length, self.size))
+        sequence = np.random.binomial(1, 0.5, (self.batch_size, length, self.size))
         num_repeats_length = repeats if self.unary else 1
-        example_input = np.zeros((1, (repeats + 1) * length + \
+        example_input = np.zeros((self.batch_size, (repeats + 1) * length + \
             num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
-        example_output = np.zeros((1, (repeats + 1) * length + \
+        example_output = np.zeros((self.batch_size, (repeats + 1) * length + \
             num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
 
-        example_input[0, :length, :self.size] = sequence
+        example_input[:, :length, :self.size] = sequence
         for j in range(repeats):
-            example_output[0, (j + 1) * length + num_repeats_length + 1:\
+            example_output[:, (j + 1) * length + num_repeats_length + 1:\
             (j + 2) * length + num_repeats_length + 1, :self.size] = sequence
         if self.unary:
-            example_input[0, length:length + repeats, -2] = 1
+            example_input[:, length:length + repeats, -2] = 1
         else:
-            example_input[0, length, -2] = repeats / float(self.max_repeats)
-        example_input[0, length + num_repeats_length, -1] = 1
+            example_input[:, length, -2] = repeats / float(self.max_repeats)
+        example_input[:, length + num_repeats_length, -1] = 1
 
         return example_input, example_output
 
@@ -123,20 +123,21 @@ class AssociativeRecallTask(Task):
             slice_idx = j * (item_length + 1) + 1
             return slice(slice_idx, slice_idx + item_length)
 
-        items = np.random.binomial(1, 0.5, (item_length, self.size, num_items))
-        query = np.random.randint(num_items - 1)
-        example_input = np.zeros((1, (item_length + 1) * (num_items + 2), \
+        items = np.random.binomial(1, 0.5, (self.batch_size, item_length, self.size, num_items))
+        queries = np.random.randint(num_items - 1, size=self.batch_size)
+        example_input = np.zeros((self.batch_size, (item_length + 1) * (num_items + 2), \
             self.size + 2), dtype=theano.config.floatX)
-        example_output = np.zeros((1, (item_length + 1) * (num_items + 2), \
+        example_output = np.zeros((self.batch_size, (item_length + 1) * (num_items + 2), \
             self.size + 2), dtype=theano.config.floatX)
 
         for j in range(num_items):
-            example_input[0, j * (item_length + 1), -2] = 1
-            example_input[0, item_slice(j), :self.size] = items[:,:,j]
-        example_input[0, num_items * (item_length + 1), -1] = 1
-        example_input[0, item_slice(num_items), :self.size] = items[:,:,query]
-        example_input[0, (num_items + 1) * (item_length + 1), -1] = 1
-        example_output[0, -item_length:, :self.size] = items[:,:,query + 1]
+            example_input[:, j * (item_length + 1), -2] = 1
+            example_input[:, item_slice(j), :self.size] = items[:,:,:,j]
+        example_input[:, num_items * (item_length + 1), -1] = 1
+        for batch in xrange(self.batch_size):
+            example_input[batch, item_slice(num_items), :self.size] = items[batch,:,:,queries[batch]]
+            example_output[batch, -item_length:, :self.size] = items[batch,:,:,queries[batch] + 1]
+        example_input[:, (num_items + 1) * (item_length + 1), -1] = 1
 
         return example_input, example_output
 
