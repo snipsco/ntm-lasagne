@@ -76,7 +76,7 @@ except KeyboardInterrupt:
 markers = [
     {
         'location': (lambda params: params['length']),
-        'color': 'red'
+        'style': {'color': 'red'}
     }
 ]
 from palettable.cubehelix import jim_special_16
