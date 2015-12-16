@@ -62,7 +62,9 @@ class NTMLayer(Layer):
             # Erase
             for i in range(num_write_heads):
                 erase = self.heads[i].erase.get_output_for(h_tm1, **kwargs)
-                M_t *= 1. - T.outer(params[i], erase)
+                erasing, _ = theano.map(T.outer, \
+                    sequences=[params[i], erase])
+                M_t *= 1. - erasing
             # Add
             for i in range(num_write_heads):
                 if self.heads[i].sign_add is not None:
@@ -70,13 +72,16 @@ class NTMLayer(Layer):
                 else:
                     sign = 1.
                 add = self.heads[i].add.get_output_for(h_tm1, **kwargs)
-                M_t += T.outer(params[i], sign * add)
+                adding, _ = theano.map(T.outer, \
+                    sequences=[params[i], sign * add])
+                M_t += adding
             outputs_t.append(M_t)
 
             # Get the read vector (using w_tm1 of the reading heads & M_t)
             read_vectors = []
             for i in range(num_write_heads, num_heads):
-                read_vectors.append(T.dot(params[i], M_t))
+                reading, _ = theano.map(T.dot, sequences=[params[i], M_t])
+                read_vectors.append(reading)
             r_t = T.concatenate(read_vectors)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
@@ -96,26 +101,13 @@ class NTMLayer(Layer):
 
             return outputs_t
 
-        # non_seqs = [self.controller.hid_init]
-        # for head in self.heads:
-        #     non_seqs += [head.W_hid_to_sign, head.b_hid_to_sign,
-        #         head.W_hid_to_key, head.b_hid_to_key,
-        #         head.W_hid_to_beta, head.b_hid_to_beta,
-        #         head.W_hid_to_gate, head.b_hid_to_gate,
-        #         head.W_hid_to_shift, head.b_hid_to_shift,
-        #         head.W_hid_to_gamma, head.b_hid_to_gamma]
-        #     if isinstance(head, WriteHead):
-        #         non_seqs += [head.W_hid_to_erase, head.b_hid_to_erase,
-        #             head.W_hid_to_add, head.b_hid_to_add,
-        #             head.W_hid_to_sign_add, head.b_hid_to_sign_add]
-        #     # non_seqs += self.controller.get_params()
-
         # TODO: hid_init and state_init for the Controller
         # QKFIX: Duplicate controller.hid_init for FeedForward Controller
-        outs_info = [self.memory.memory_init, self.controller.hid_init, self.controller.hid_init]
-        outs_info += [head.weights_init for head in self.heads]
-        # if self.controller.outputs_info is not None:
-        #     outs_info += self.controller.outputs_info[1:]
+        ones_vector = T.ones((self.input_shape[0], 1))
+        memory_init = T.tile(self.memory.memory_init, (self.input_shape[0], 1, 1))
+        hid_init = T.dot(ones_vector, self.controller.hid_init)
+        outs_info = [T.unbroadcast(memory_init, 1), hid_init, hid_init]
+        outs_info += [T.dot(ones_vector, head.weights_init) for head in self.heads]
 
         # QKFIX: Remove the strict mode
         hids, _ = theano.scan(
@@ -127,7 +119,8 @@ class NTMLayer(Layer):
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         if get_details:
-            hid_out = [hid.dimshuffle(1, 0, 2) for hid in hids]
+            hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
+            hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
         else:
             hid_out = hids[1].dimshuffle(1, 0, 2)
 

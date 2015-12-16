@@ -27,8 +27,9 @@ target = T.dtensor3('target')
 size = 8
 num_units = 100
 memory_shape = (128, 20)
+batch_size = 1
 
-l_input = InputLayer((1, None, size + 2), input_var=input_var)
+l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
 _, seqlen, _ = l_input.input_var.shape
 # Neural Turing Machine Layer
 memory = Memory(memory_shape, name='memory', learn_init=False)
@@ -47,10 +48,9 @@ l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
 l_shp = ReshapeLayer(l_ntm, (-1, num_units))
 l_dense = DenseLayer(l_shp, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
     name='dense')
-l_out = ReshapeLayer(l_dense, (1, seqlen, size + 2))
+l_out = ReshapeLayer(l_dense, (batch_size, seqlen, size + 2))
 
 pred = T.clip(lasagne.layers.get_output(l_out), 1e-10, 1. - 1e-10)
-test_pred = T.clip(lasagne.layers.get_output(l_out, deterministic=True), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target))
 
 params = lasagne.layers.get_all_params(l_out, trainable=True)
@@ -60,7 +60,7 @@ train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], test_pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
-generator = RepeatCopyTask(batch_size=1, max_iter=500000, size=size, min_length=3, \
+generator = RepeatCopyTask(batch_size=batch_size, max_iter=500000, size=size, min_length=3, \
     max_length=5, max_repeats=5, unary=True)
 
 try:
