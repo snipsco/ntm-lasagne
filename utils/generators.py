@@ -5,8 +5,9 @@ import time
 
 class Task(object):
 
-    def __init__(self, max_iter=None):
+    def __init__(self, max_iter=None, batch_size=1):
         self.max_iter = max_iter
+        self.batch_size = batch_size
         self.num_iter = 0
 
     def __iter__(self):
@@ -32,8 +33,8 @@ class Task(object):
 
 class CopyTask(Task):
 
-    def __init__(self, size, max_length, min_length=1, max_iter=None):
-        super(CopyTask, self).__init__(max_iter=max_iter)
+    def __init__(self, size, max_length, min_length=1, max_iter=None, batch_size=1):
+        super(CopyTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.size = size
         self.min_length = min_length
         self.max_length = max_length
@@ -44,15 +45,15 @@ class CopyTask(Task):
         return {'length': length}
 
     def sample(self, length):
-        sequence = np.random.binomial(1, 0.5, (length, self.size))
-        example_input = np.zeros((1, 2 * length + 1, self.size + 1), \
+        sequence = np.random.binomial(1, 0.5, (self.batch_size, length, self.size))
+        example_input = np.zeros((self.batch_size, 2 * length + 1, self.size + 1), \
             dtype=theano.config.floatX)
-        example_output = np.zeros((1, 2 * length + 1, self.size + 1), \
+        example_output = np.zeros((self.batch_size, 2 * length + 1, self.size + 1), \
             dtype=theano.config.floatX)
 
-        example_input[0, :length, :self.size] = sequence
-        example_output[0, length + 1:, :self.size] = sequence
-        example_input[0, length, -1] = 1
+        example_input[:, :length, :self.size] = sequence
+        example_output[:, length + 1:, :self.size] = sequence
+        example_input[:, length, -1] = 1
 
         return example_input, example_output
 
@@ -60,8 +61,8 @@ class CopyTask(Task):
 class RepeatCopyTask(Task):
 
     def __init__(self, size, max_length, max_repeats=20, min_length=1, \
-        min_repeats=1, unary=False, max_iter=None):
-        super(RepeatCopyTask, self).__init__(max_iter=max_iter)
+        min_repeats=1, unary=False, max_iter=None, batch_size=1):
+        super(RepeatCopyTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.size = size
         self.min_length = min_length
         self.max_length = max_length
@@ -100,8 +101,8 @@ class RepeatCopyTask(Task):
 class AssociativeRecallTask(Task):
 
     def __init__(self, size, max_item_length, max_num_items, \
-        min_item_length=1, min_num_items=2, max_iter=None):
-        super(AssociativeRecallTask, self).__init__(max_iter=max_iter)
+        min_item_length=1, min_num_items=2, max_iter=None, batch_size=1):
+        super(AssociativeRecallTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.size = size
         self.max_item_length = max_item_length
         self.max_num_items = max_num_items
@@ -143,8 +144,8 @@ class AssociativeRecallTask(Task):
 class DynamicNGramsTask(Task):
 
     def __init__(self, ngrams, max_length, min_length=1, max_iter=None, \
-        table=None):
-        super(DynamicNGramsTask, self).__init__(max_iter=max_iter)
+        table=None, batch_size=1):
+        super(DynamicNGramsTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.ngrams = ngrams
         if table is None:
             table = self.make_table()
