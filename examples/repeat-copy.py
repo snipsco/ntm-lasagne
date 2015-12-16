@@ -60,7 +60,7 @@ train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], test_pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
-generator = RepeatCopyTask(max_iter=500000, size=size, min_length=3, \
+generator = RepeatCopyTask(batch_size=1, max_iter=500000, size=size, min_length=3, \
     max_length=5, max_repeats=5, unary=True)
 
 try:

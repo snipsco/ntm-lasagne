@@ -59,7 +59,7 @@ train_fn = theano.function([input_var, target], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
-generator = CopyTask(max_iter=500000, size=size, max_length=5)
+generator = CopyTask(batch_size=1, max_iter=500000, size=size, max_length=5)
 
 try:
     scores, all_scores = [], []
