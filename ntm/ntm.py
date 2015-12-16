@@ -82,7 +82,7 @@ class NTMLayer(Layer):
             for i in range(num_write_heads, num_heads):
                 reading, _ = theano.map(T.dot, sequences=[params[i], M_t])
                 read_vectors.append(reading)
-            r_t = T.concatenate(read_vectors)
+            r_t = T.concatenate(read_vectors, axis=1)
 
             # Apply the controller (using x_t, r_t & requirements for the controller)
             h_t, state_t = self.controller.step(x_t, r_t, state_tm1)
@@ -105,9 +105,12 @@ class NTMLayer(Layer):
         # QKFIX: Duplicate controller.hid_init for FeedForward Controller
         ones_vector = T.ones((self.input_shape[0], 1))
         memory_init = T.tile(self.memory.memory_init, (self.input_shape[0], 1, 1))
+        memory_init = T.unbroadcast(memory_init, 0)
         hid_init = T.dot(ones_vector, self.controller.hid_init)
-        outs_info = [T.unbroadcast(memory_init, 1), hid_init, hid_init]
-        outs_info += [T.dot(ones_vector, head.weights_init) for head in self.heads]
+        hid_init = T.unbroadcast(hid_init, 0)
+        outs_info = [memory_init, hid_init, hid_init]
+        outs_info += [T.unbroadcast(T.dot(ones_vector, \
+            head.weights_init), 0) for head in self.heads]
 
         # QKFIX: Remove the strict mode
         hids, _ = theano.scan(
