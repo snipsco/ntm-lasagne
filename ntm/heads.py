@@ -87,6 +87,7 @@ class Head(Layer):
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
         # TODO: Replace the 1 by the number of batches
+        # /!\ WARNING: NOT TRUE
         self.weights_init = self.add_param(
             weights_init, (1, self.memory_size[0]),
             name='weights_init', trainable=learn_init, regularizable=False)
@@ -105,7 +106,7 @@ class Head(Layer):
 
         # Content Adressing (3.3.1)
         beta_t = T.addbroadcast(beta_t, 1)
-        betaK = beta_t * similarities.cosine_similarity(sign_t * k_t, M_t)
+        betaK = beta_t * similarities.cosine_similarity_batched(sign_t * k_t, M_t)
         w_c = lasagne.nonlinearities.softmax(betaK)
 
         # Interpolation (3.3.2)
@@ -113,7 +114,7 @@ class Head(Layer):
         if deterministic or self.p == 0.:
             w_g = g_t * w_c + (1. - g_t) * w_tm1
         else:
-            droupout_gate = self._srng.binomial((1, 1), p=1. - self.p)
+            droupout_gate = self._srng.binomial((self.input_shape[0], 1), p=1. - self.p)
             droupout_gate = T.addbroadcast(droupout_gate, 1)
             w_g = droupout_gate * (g_t * w_c + (1. - g_t) * w_tm1) \
                 + (1. - droupout_gate) * w_tm1
@@ -125,7 +126,7 @@ class Head(Layer):
         w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g_padded, conv_filter,
             image_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
-            filter_shape=(1, 1, 1, self.num_shifts),
+            filter_shape=(self.input_shape[0], 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
         if deterministic or self.p == 0.:
