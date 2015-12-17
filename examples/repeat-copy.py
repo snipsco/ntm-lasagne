@@ -57,7 +57,7 @@ params = lasagne.layers.get_all_params(l_out, trainable=True)
 updates = graves_rmsprop(loss, params, beta=1e-4)
 
 train_fn = theano.function([input_var, target], loss, updates=updates)
-ntm_fn = theano.function([input_var], test_pred)
+ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 generator = RepeatCopyTask(batch_size=batch_size, max_iter=500000, size=size, min_length=3, \
