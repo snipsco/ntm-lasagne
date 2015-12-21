@@ -4,7 +4,6 @@ import numpy as np
 import random
 
 import matplotlib.pyplot as plt
-import pandas as pd
 
 from lasagne.layers import InputLayer, DenseLayer, ReshapeLayer
 import lasagne.layers
