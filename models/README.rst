@@ -23,6 +23,15 @@ General
   - *Controller* : Dense controller
   - *Heads* : 1 Read head + 1 Write head
 
+* **Training examples**
+
+  - *Size* : 8
+  - *Minimum Length* : 3
+  - *Maximum Length* : 5
+  - *Minimum Repeat number* : 1
+  - *Maximum Repeat number* : 5
+  - *Unary* : ``True``
+
 ^^^^^^^^^^^^
 Optimization
 ^^^^^^^^^^^^
