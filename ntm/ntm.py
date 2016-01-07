@@ -17,6 +17,7 @@ class NTMLayer(Layer):
                  controller,
                  heads,
                  grad_clipping=None,
+                 only_return_final=False,
                  **kwargs):
         super(NTMLayer, self).__init__(incoming, **kwargs)
 
@@ -26,9 +27,13 @@ class NTMLayer(Layer):
         # TODO: Sort the heads to have WriteHeads > ReadHeads
         self.heads = heads
         self.grad_clipping = grad_clipping
+        self.only_return_final = only_return_final
 
     def get_output_shape_for(self, input_shapes):
-        return (input_shapes[0], input_shapes[1], self.controller.num_units)
+        if self.only_return_final:
+            return (input_shapes[0], self.controller.num_units)
+        else:
+            return (input_shapes[0], input_shapes[1], self.controller.num_units)
 
     def get_params(self, **tags):
         params = super(NTMLayer, self).get_params(**tags)
@@ -121,11 +126,18 @@ class NTMLayer(Layer):
             strict=False)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
-        if get_details:
-            hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
-            hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
+        if self.only_return_final:
+            if get_details:
+                hid_out = [hids[0][-1]]
+                hid_out += [hid[-1] for hid in hids[1:]]
+            else:
+                hid_out = hids[1][-1]
         else:
-            hid_out = hids[1].dimshuffle(1, 0, 2)
+            if get_details:
+                hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
+                hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
+            else:
+                hid_out = hids[1].dimshuffle(1, 0, 2)
 
         return hid_out
 
