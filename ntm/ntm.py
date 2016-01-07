@@ -126,16 +126,12 @@ class NTMLayer(Layer):
             strict=False)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
-        if self.only_return_final:
-            if get_details:
-                hid_out = [hids[0][-1]]
-                hid_out += [hid[-1] for hid in hids[1:]]
-            else:
-                hid_out = hids[1][-1]
+        if get_details:
+            hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
+            hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
         else:
-            if get_details:
-                hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
-                hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
+            if self.only_return_final:
+                hid_out = hids[1][-1]
             else:
                 hid_out = hids[1].dimshuffle(1, 0, 2)
 
