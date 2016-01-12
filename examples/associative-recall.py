@@ -42,7 +42,7 @@ l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
 _, seqlen, _ = l_input.input_var.shape
 
 # Neural Turing Machine Layer
-memory = Memory(memory_shape, name='memory', learn_init=False)
+memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
 controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
     nonlinearity=lasagne.nonlinearities.rectify,
     name='controller')
@@ -67,15 +67,16 @@ pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
 params = lasagne.layers.get_all_params(l_output, trainable=True)
-updates = lasagne.updates.adam(loss, params, learning_rate=1e-3)
+learning_rate = theano.shared(1e-4)
+updates = lasagne.updates.adam(loss, params, learning_rate=learning_rate)
 
 train_fn = theano.function([input_var, target_var], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 # Training
-generator = AssociativeRecallTask(batch_size=batch_size, max_iter=500000, size=size, max_num_items=6, \
-    min_item_length=3, max_item_length=3)
+generator = AssociativeRecallTask(batch_size=batch_size, max_iter=5000000, size=size, max_num_items=6, \
+    min_item_length=1, max_item_length=3)
 
 # Save model snapshots
 snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
@@ -99,17 +100,20 @@ try:
             else:
                 with open(os.path.join(snapshot_directory, 'model_latest.npy'), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
-
+            # if mean_scores < 0.6:
+            #     learning_rate.set_value(1e-4)
             print 'Batch #%d: %.6f' % (i, mean_scores)
             scores = []
 except KeyboardInterrupt:
+    with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
+        np.save(f, all_scores)
     pass
 
 # Visualization
 def marker1(params):
     return params['num_items'] * (params['item_length'] + 1)
 def marker2(params):
-    return params['num_items'] * (params['item_length'] + 1) + params['item_length'] + 1
+    return (params['num_items'] + 1) * (params['item_length'] + 1)
 markers = [
     {
         'location': marker1,
