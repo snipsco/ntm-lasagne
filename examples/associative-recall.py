@@ -29,6 +29,14 @@ except ImportError:
     default_cmap = 'bone'
 
 
+# Save model snapshots
+snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
+                     '-associative-recall'.format(datetime.now())
+os.mkdir(snapshot_directory)
+print 'Snapshots directory: %s' % (snapshot_directory,)
+
+print np.random.get_state()
+
 input_var, target_var = T.dtensor3s('input', 'target')
 
 n = 20
@@ -78,12 +86,6 @@ ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, det
 generator = AssociativeRecallTask(batch_size=batch_size, max_iter=5000000, size=size, max_num_items=6, \
     min_item_length=1, max_item_length=3)
 
-# Save model snapshots
-snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-                     '-associative-recall'.format(datetime.now())
-os.mkdir(snapshot_directory)
-print 'Snapshots directory: %s' % (snapshot_directory,)
-
 try:
     scores, all_scores = [], []
     best_score = -1.
@@ -97,11 +99,11 @@ try:
                 best_score = mean_scores
                 with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
-            else:
-                with open(os.path.join(snapshot_directory, 'model_latest.npy'), 'w') as f:
+            if i % 2000 == 0:
+                with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
-            # if mean_scores < 0.6:
-            #     learning_rate.set_value(1e-4)
+            if mean_scores < 0.01:
+                learning_rate.set_value(1e-5)
             print 'Batch #%d: %.6f' % (i, mean_scores)
             scores = []
 except KeyboardInterrupt:
