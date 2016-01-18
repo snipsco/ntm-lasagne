@@ -71,7 +71,7 @@ l_output = DenseLayer(l_ntm, num_units=1, nonlinearity=lasagne.nonlinearities.si
 pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
-params = lasagne.layers.get_all_params(l_out, trainable=True)
+params = lasagne.layers.get_all_params(l_output, trainable=True)
 updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target_var], loss, updates=updates)
