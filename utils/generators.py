@@ -134,7 +134,7 @@ class AssociativeRecallTask(Task):
             example_input[:, j * (item_length + 1), -2] = 1
             example_input[:, item_slice(j), :self.size] = items[:,:,:,j]
         example_input[:, num_items * (item_length + 1), -1] = 1
-        for batch in xrange(self.batch_size):
+        for batch in range(self.batch_size):
             example_input[batch, item_slice(num_items), :self.size] = items[batch,:,:,queries[batch]]
             example_output[batch, -item_length:, :self.size] = items[batch,:,:,queries[batch] + 1]
         example_input[:, (num_items + 1) * (item_length + 1), -1] = 1
@@ -162,7 +162,7 @@ class DynamicNGramsTask(Task):
             length = np.random.randint(self.min_length, self.max_length + 1)
         return {'length': length}
 
-    def sample(self, length=None):
+    def sample(self, length):
         sequence = np.zeros((self.batch_size, length + 1, 1), dtype=theano.config.floatX)
         head = np.random.binomial(1, 0.5, (self.batch_size, self.ngrams))
         sequence[:, :self.ngrams, 0] = head
@@ -175,3 +175,109 @@ class DynamicNGramsTask(Task):
             index = ((index & mask) << 1) + b
 
         return sequence[:,:-1], sequence[:,1:]
+
+class DyckWordsTask(Task):
+
+    def __init__(self, max_length, min_length=1, max_iter=None, batch_size=1):
+        super(DyckWordsTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
+        self.max_length = max_length
+        self.min_length = min_length
+
+    def sample_params(self, length=None):
+        if length is None:
+            length = np.random.randint(self.min_length, self.max_length + 1)
+        return {'length': length}
+
+    def sample(self, length):
+        example_input = np.zeros((self.batch_size, 2 * length, 1), \
+            dtype=theano.config.floatX)
+        example_output = np.random.binomial(1, 0.5, (self.batch_size, 1)).astype(\
+            dtype=theano.config.floatX)
+
+        for batch in range(self.batch_size):
+            if example_output[batch, 0]:
+                example_input[batch, :, 0] = self.get_random_dyck(length)
+            else:
+                example_input[batch, :, 0] = self.get_random_non_dyck(length)
+
+        return example_input, example_output
+
+    def get_random_dyck(self, n):
+        """
+        Return a random Dyck word of a given semilength `n`
+
+        This algorithm is based on a conjugacy property between words in
+        the language `L = S(u^n d^{n+1})` and *Dyck words* of length 2n,
+        where `S` is the group of permutations.
+        This 1-to-(2n+1) correspondance between these words is given by
+        the cycle lemma:
+
+        **Cycle Lemma**: Let `A = {u, d}` be a binary alphabet and `delta`
+        a "height" function such that `delta(u) = +1` and `delta(d) = -1`.
+        For any word `w` in `A^*` such that `delta(w) = -1`, there exists
+        a unique factorization `w = w_1 w_2` satisfying
+            - `w_1` is not empty;
+            - `w_2 w_1` has the Lukasiewicz property, i.e. any strict left
+            factor of `w_2 w_1` satisfies `delta(v) >= 0`.
+        where we extend the definition of `delta` to words by summing the
+        heights of every individual letter.
+
+        To summarize, here is the pseudo-code for this algorithm:
+            - Pick a random word `w` in the language `L = S(u^n d^{n+1})`
+            - Apply the cycle lemma to find the unique conjugate of
+            `w` having the Lukasiewicz property
+            - Return its prefix of length 2n, which is a Dyck word
+
+        See: [Fla09], Notes I.47 and I.49 (pp.75-77)
+
+        [Fla09] Analytic Combinatorics, *Philippe Flajolet, Robert Sedgewick*
+                <http://algo.inria.fr/flajolet/Publications/AnaCombi/anacombi.html>
+        """
+        # Get a random element in L = u^n d^{n+1}
+        w = [0] * n + [1] * (n + 1)
+        np.random.shuffle(w)
+
+        # Get the unique conjugate of w having the Lukasiewicz property
+        # (Cycle Lemma)
+        min_height = (0, 0)
+        stack = 0
+        for i in range(2 * n):
+            if w[i]: stack -= 1
+            else: stack += 1
+            if stack < min_height[1]:
+                min_height = (i + 1, stack)
+        min_idx = min_height[0]
+        luka = w[min_idx:] + w[:min_idx]
+
+        return luka[:-1]
+
+    def get_random_non_dyck(self, n):
+        """
+        Return a random balanced non-Dyck word of semilength `n`
+
+        The algorithm is based on the bijection between words in the
+        language `L = S(u^{n-1} d^{n+1})` and the balanced words of length
+        2n that are not Dyck words. This transformation is given by the
+        reflection of the letters after the first letter that violates
+        the Dyck property (i.e. the first right parenthesis that does
+        not have a matching left counterpart). The reflexion transformation
+        is defined by transforming any left parenthesis in a right one
+        and vice-versa.
+
+        To summarize, here is the pseudo-code for this algorithm:
+            - Pick a random word `w` in the language `L = S(u^{n-1} d^{n+1})`
+            - Find the first letter violating the Dyck property
+            - Apply the reflection transformation to the following letters
+        """
+        w = [0] * (n - 1) + [1] * (n + 1)
+        np.random.shuffle(w)
+
+        stack, reflection = (0, False)
+        for i in range(2 * n):
+            if reflection:
+                w[i] = 1 * (not w[i])
+            else:
+                if w[i]: stack -= 1
+                else: stack += 1
+                reflection = (stack < 0)
+        return w

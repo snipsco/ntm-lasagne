@@ -19,7 +19,7 @@ from ntm.controllers import DenseController
 from ntm.heads import WriteHead, ReadHead
 from ntm.updates import graves_rmsprop
 
-from utils.generators import AssociativeRecallTask
+from utils.generators import DyckWordsTask
 from utils.visualization import Dashboard
 
 try:
@@ -30,22 +30,22 @@ except ImportError:
 
 
 # Save model snapshots
-snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-                     '-associative-recall'.format(datetime.now())
+snapshot_directory = 'snapshots/dyck-words/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
+                     '-dyck-words'.format(datetime.now())
 os.mkdir(snapshot_directory)
 print 'Snapshots directory: %s' % (snapshot_directory,)
 
 print np.random.get_state()
 
-input_var, target_var = T.dtensor3s('input', 'target')
+input_var = T.dtensor3('input')
+target_var = T.dmatrix('target')
 
 num_units = 100
-size = 8
 memory_shape = (128, 20)
 batch_size = 1
 
 # Input Layer
-l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
+l_input = InputLayer((batch_size, None, 1), input_var=input_var)
 _, seqlen, _ = l_input.input_var.shape
 
 # Neural Turing Machine Layer
@@ -61,29 +61,25 @@ heads = [
         W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, p=0.)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-      heads=heads)
+      heads=heads, only_return_final=True)
 
 # Output Layer
-l_shp = ReshapeLayer(l_ntm, (-1, num_units))
-l_dense = DenseLayer(l_shp, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
+l_output = DenseLayer(l_ntm, num_units=1, nonlinearity=lasagne.nonlinearities.sigmoid, \
     name='dense')
-l_output = ReshapeLayer(l_dense, (batch_size, seqlen, size + 2))
 
 
 pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
-params = lasagne.layers.get_all_params(l_output, trainable=True)
-learning_rate = theano.shared(1e-4)
-updates = lasagne.updates.adam(loss, params, learning_rate=learning_rate)
+params = lasagne.layers.get_all_params(l_out, trainable=True)
+updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target_var], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 # Training
-generator = AssociativeRecallTask(batch_size=batch_size, max_iter=5000000, size=size, max_num_items=6, \
-    min_item_length=1, max_item_length=3)
+generator = DyckWordsTask(batch_size=batch_size, max_iter=5000000, max_length=5)
 
 try:
     scores, all_scores = [], []
@@ -101,8 +97,6 @@ try:
             if i % 2000 == 0:
                 with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
-            if mean_scores < 0.01:
-                learning_rate.set_value(1e-5)
             print 'Batch #%d: %.6f' % (i, mean_scores)
             scores = []
 except KeyboardInterrupt:
