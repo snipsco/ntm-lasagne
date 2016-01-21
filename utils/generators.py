@@ -20,7 +20,7 @@ class Task(object):
         if (self.max_iter is None) or (self.num_iter < self.max_iter):
             self.num_iter += 1
             params = self.sample_params()
-            return self.num_iter, self.sample(**params)
+            return (self.num_iter - 1), self.sample(**params)
         else:
             raise StopIteration()
 

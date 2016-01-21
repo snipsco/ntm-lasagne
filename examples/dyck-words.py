@@ -42,7 +42,7 @@ target_var = T.dmatrix('target')
 
 num_units = 100
 memory_shape = (128, 20)
-batch_size = 1
+batch_size = 32
 
 # Input Layer
 l_input = InputLayer((batch_size, None, 1), input_var=input_var)
@@ -72,14 +72,15 @@ pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
 loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
 params = lasagne.layers.get_all_params(l_output, trainable=True)
-updates = graves_rmsprop(loss, params, beta=1e-3)
+updates = lasagne.updates.adam(loss, params, learning_rate=1e-3)
+# updates = graves_rmsprop(loss, params, beta=1e-3)
 
 train_fn = theano.function([input_var, target_var], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 # Training
-generator = DyckWordsTask(batch_size=batch_size, max_iter=5000000, max_length=5)
+generator = DyckWordsTask(batch_size=batch_size, max_iter=5000000, max_length=20)
 
 try:
     scores, all_scores = [], []
