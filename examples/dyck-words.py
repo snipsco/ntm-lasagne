@@ -38,11 +38,11 @@ print 'Snapshots directory: %s' % (snapshot_directory,)
 print np.random.get_state()
 
 input_var = T.dtensor3('input')
-target_var = T.dmatrix('target')
+target_var = T.dtensor3('target')
 
 num_units = 100
 memory_shape = (128, 20)
-batch_size = 32
+batch_size = 1
 
 # Input Layer
 l_input = InputLayer((batch_size, None, 1), input_var=input_var)
@@ -61,11 +61,13 @@ heads = [
         W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, p=0.)
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-      heads=heads, only_return_final=True)
+      heads=heads)
 
 # Output Layer
-l_output = DenseLayer(l_ntm, num_units=1, nonlinearity=lasagne.nonlinearities.sigmoid, \
+l_shp = ReshapeLayer(l_ntm, (-1, num_units))
+l_dense = DenseLayer(l_shp, num_units=1, nonlinearity=lasagne.nonlinearities.sigmoid, \
     name='dense')
+l_output = ReshapeLayer(l_dense, (batch_size, seqlen, 1))
 
 
 pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
@@ -73,14 +75,14 @@ loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
 params = lasagne.layers.get_all_params(l_output, trainable=True)
 updates = lasagne.updates.adam(loss, params, learning_rate=1e-3)
-# updates = graves_rmsprop(loss, params, beta=1e-3)
+# updates = graves_rmsprop(loss, params, beta=1e-4)
 
 train_fn = theano.function([input_var, target_var], loss, updates=updates)
 ntm_fn = theano.function([input_var], pred)
 ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
 
 # Training
-generator = DyckWordsTask(batch_size=batch_size, max_iter=5000000, max_length=20)
+generator = DyckWordsTask(batch_size=batch_size, max_iter=5000000, max_length=5)
 
 try:
     scores, all_scores = [], []
@@ -98,6 +100,9 @@ try:
             if i % 2000 == 0:
                 with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
+            if mean_scores < 1e-4 and generator.max_length < 20:
+                generator.max_length *= 2
+                print '[x] Maximum length: %d' % generator.max_length
             print 'Batch #%d: %.6f' % (i, mean_scores)
             scores = []
 except KeyboardInterrupt:

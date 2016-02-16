@@ -191,16 +191,33 @@ class DyckWordsTask(Task):
     def sample(self, length):
         example_input = np.zeros((self.batch_size, 2 * length, 1), \
             dtype=theano.config.floatX)
-        example_output = np.random.binomial(1, 0.5, (self.batch_size, 1)).astype(\
+        example_output = np.zeros((self.batch_size, 2 * length, 1), \
             dtype=theano.config.floatX)
+        is_dyck_word = np.random.binomial(1, 0.5, self.batch_size)\
+                       .astype(dtype=theano.config.floatX)
 
         for batch in range(self.batch_size):
-            if example_output[batch, 0]:
-                example_input[batch, :, 0] = self.get_random_dyck(length)
+            if is_dyck_word[batch]:
+                word = self.get_random_dyck(length)
             else:
-                example_input[batch, :, 0] = self.get_random_non_dyck(length)
+                word = self.get_random_non_dyck(length)
+            example_input[batch, :, 0] = word
+            example_output[batch, :, 0] = self.get_dyck_prefix(word)
 
         return example_input, example_output
+
+    def get_dyck_prefix(self, word):
+        def dyck_prefixes(prefixes_and_stack, u):
+            prefixes, is_valid, stack = prefixes_and_stack
+            if u: stack -= 1
+            else: stack += 1
+            if stack < 0:
+                is_valid = False
+            prefixes.append(is_valid and (stack == 0))
+            return (prefixes, is_valid, stack)
+
+        prefixes, _, _ = reduce(dyck_prefixes, word, ([], True, 0))
+        return prefixes
 
     def get_random_dyck(self, n):
         """
