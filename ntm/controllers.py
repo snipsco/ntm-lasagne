@@ -25,7 +25,7 @@ class Controller(Layer):
         self.num_units = num_units
         self.num_reads = num_reads
 
-    def step(self, input, reads, hidden, *args, **kwargs):
+    def step(self, input, reads, hidden, state, *args, **kwargs):
         """
         Returns (output, state) where
             - 'output' is the true hidden state returned by the controller
@@ -69,7 +69,7 @@ class DenseController(Controller):
         self.W_reads_to_hid, self.b_reads_to_hid = add_weight_and_bias_params(num_reads,
             W_reads_to_hid, b_reads_to_hid, name='reads_to_hid')
 
-    def step(self, input, reads, hidden):
+    def step(self, input, reads, *args):
         if input.ndim > 2:
             input = input.flatten(2)
         if reads.ndim > 2:
@@ -86,4 +86,7 @@ class DenseController(Controller):
 
     @property
     def outputs_info(self):
-        return []
+        ones_vector = T.ones((self.input_shape[0], 1))
+        hid_init = T.dot(ones_vector, self.hid_init)
+        hid_init = T.unbroadcast(hid_init, 0)
+        return [hid_init, hid_init]

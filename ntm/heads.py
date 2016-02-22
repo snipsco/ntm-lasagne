@@ -116,7 +116,7 @@ class Head(Layer):
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
         w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g_padded, conv_filter,
-            image_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
+            input_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
             filter_shape=(self.input_shape[0], 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')

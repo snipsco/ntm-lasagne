@@ -31,12 +31,12 @@ except ImportError:
 
 
 # Save model snapshots
-snapshot_directory = 'snapshots/repeat-copy/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-                     '-associative-recall'.format(datetime.now())
-os.mkdir(snapshot_directory)
-print 'Snapshots directory: %s' % (snapshot_directory,)
+# snapshot_directory = 'snapshots/repeat-copy/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
+#                      '-associative-recall'.format(datetime.now())
+# os.mkdir(snapshot_directory)
+# print 'Snapshots directory: %s' % (snapshot_directory,)
 
-print np.random.get_state()
+# print np.random.get_state()
 
 def model(input_var, batch_size=1, size=8, \
     num_units=100, memory_shape=(128, 20)):
@@ -71,8 +71,11 @@ def model(input_var, batch_size=1, size=8, \
 if __name__ == '__main__':
     input_var, target_var = T.dtensor3s('input', 'target')
 
-    l_output, l_ntm = model(input_var, batch_size=1, size=8, \
-        num_units=100, memory_shape=(128, 20))
+    generator = RepeatCopyTask(batch_size=1, max_iter=500000, size=8, min_length=3, \
+        max_length=5, max_repeats=5, unary=True, end_marker=True)
+
+    l_output, l_ntm = model(input_var, batch_size=generator.batch_size,
+        size=generator.size, num_units=100, memory_shape=(128, 20))
 
     pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
     loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
@@ -83,11 +86,9 @@ if __name__ == '__main__':
 
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
     ntm_fn = theano.function([input_var], pred)
-    ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
+    # ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
     # Training
-    generator = RepeatCopyTask(batch_size=batch_size, max_iter=500000, size=size, min_length=3, \
-        max_length=5, max_repeats=5, unary=True, end_marker=True)
 
     try:
         scores, all_scores = [], []
