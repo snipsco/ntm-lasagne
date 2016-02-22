@@ -38,91 +38,92 @@ print 'Snapshots directory: %s' % (snapshot_directory,)
 
 print np.random.get_state()
 
-input_var, target_var = T.dtensor3s('input', 'target')
+def model(input_var, batch_size=1, size=8, \
+    num_units=100, memory_shape=(128, 20)):
 
-# Parameters - General
-size = 8
-batch_size = 1
-# Parameters - NTM
-num_units = 100
-memory_shape = (128, 20)
+    # Input Layer
+    l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
+    _, seqlen, _ = l_input.input_var.shape
 
-# Input Layer
-l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
-_, seqlen, _ = l_input.input_var.shape
+    # Neural Turing Machine Layer
+    memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
+    controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
+        nonlinearity=lasagne.nonlinearities.rectify,
+        name='controller')
+    heads = [
+        WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
+            W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, W_hid_to_sign_add=None,
+            nonlinearity_add=lasagne.nonlinearities.rectify),
+        ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
+            W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify)
+    ]
+    l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
+          heads=heads)
 
-# Neural Turing Machine Layer
-memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
-controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
-    nonlinearity=lasagne.nonlinearities.rectify,
-    name='controller')
-heads = [
-    WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
-        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, W_hid_to_sign_add=None,
-        nonlinearity_add=lasagne.nonlinearities.rectify, p=0.),
-    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
-        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, p=0.)
-]
-l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-      heads=heads)
+    # Output Layer
+    l_output_reshape = ReshapeLayer(l_ntm, (-1, num_units))
+    l_output_dense = DenseLayer(l_output_reshape, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
+        name='dense')
+    l_output = ReshapeLayer(l_output_dense, (batch_size, seqlen, size + 2))
 
-# Output Layer
-l_shp = ReshapeLayer(l_ntm, (-1, num_units))
-l_dense = DenseLayer(l_shp, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
-    name='dense')
-l_output = ReshapeLayer(l_dense, (batch_size, seqlen, size + 2))
+    return l_output, l_ntm
 
+if __name__ == '__main__':
+    input_var, target_var = T.dtensor3s('input', 'target')
 
-pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
-loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
+    l_output, l_ntm = model(input_var, batch_size=1, size=8, \
+        num_units=100, memory_shape=(128, 20))
 
-params = lasagne.layers.get_all_params(l_output, trainable=True)
-# updates = graves_rmsprop(loss, params, beta=1e-3)
-updates = lasagne.updates.adam(loss, params, learning_rate=5e-4)
+    pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
+    loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
-train_fn = theano.function([input_var, target_var], loss, updates=updates)
-ntm_fn = theano.function([input_var], pred)
-ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
+    params = lasagne.layers.get_all_params(l_output, trainable=True)
+    # updates = graves_rmsprop(loss, params, beta=1e-3)
+    updates = lasagne.updates.adam(loss, params, learning_rate=5e-4)
 
-# Training
-generator = RepeatCopyTask(batch_size=batch_size, max_iter=500000, size=size, min_length=3, \
-    max_length=5, max_repeats=5, unary=True, end_marker=True)
+    train_fn = theano.function([input_var, target_var], loss, updates=updates)
+    ntm_fn = theano.function([input_var], pred)
+    ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
-try:
-    scores, all_scores = [], []
-    best_score = -1.
-    for i, (example_input, example_output) in generator:
-        score = train_fn(example_input, example_output)
-        scores.append(score)
-        all_scores.append(score)
-        if i % 500 == 0:
-            mean_scores = np.mean(scores)
-            if (best_score < 0) or (mean_scores < best_score):
-                best_score = mean_scores
-                with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
-                    np.save(f, lasagne.layers.get_all_param_values(l_output))
-            if i % 2000 == 0:
-                with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
-                    np.save(f, lasagne.layers.get_all_param_values(l_output))
-            print 'Batch #%d: %.6f' % (i, mean_scores)
-            scores = []
-except KeyboardInterrupt:
-    with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
-        np.save(f, all_scores)
-    pass
+    # Training
+    generator = RepeatCopyTask(batch_size=batch_size, max_iter=500000, size=size, min_length=3, \
+        max_length=5, max_repeats=5, unary=True, end_marker=True)
 
-# Visualization
-def marker(generator):
-    def marker_(params):
-        num_repeats_length = params['repeats'] if generator.unary else 1
-        return params['length'] + num_repeats_length
-    return marker_
-markers = [
-    {
-        'location': marker(generator),
-        'style': {'color': 'red', 'ls': '-'}
-    }
-]
+    try:
+        scores, all_scores = [], []
+        best_score = -1.
+        for i, (example_input, example_output) in generator:
+            score = train_fn(example_input, example_output)
+            scores.append(score)
+            all_scores.append(score)
+            if i % 500 == 0:
+                mean_scores = np.mean(scores)
+                if (best_score < 0) or (mean_scores < best_score):
+                    best_score = mean_scores
+                    with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
+                        np.save(f, lasagne.layers.get_all_param_values(l_output))
+                if i % 2000 == 0:
+                    with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
+                        np.save(f, lasagne.layers.get_all_param_values(l_output))
+                print 'Batch #%d: %.6f' % (i, mean_scores)
+                scores = []
+    except KeyboardInterrupt:
+        with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
+            np.save(f, all_scores)
+        pass
 
-dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
-    memory_shape=memory_shape, markers=markers, cmap=default_cmap)
+    # Visualization
+    def marker(generator):
+        def marker_(params):
+            num_repeats_length = params['repeats'] if generator.unary else 1
+            return params['length'] + num_repeats_length
+        return marker_
+    markers = [
+        {
+            'location': marker(generator),
+            'style': {'color': 'red', 'ls': '-'}
+        }
+    ]
+
+    dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
+        memory_shape=memory_shape, markers=markers, cmap=default_cmap)
