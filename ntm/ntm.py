@@ -99,11 +99,6 @@ class NTMLayer(Layer):
                 weights = self.heads[i].get_output_for(h_t, params[i], M_t, **kwargs)
                 outputs_t.append(weights)
 
-            # Gradient clipping
-            # if self.grad_clipping is not None:
-            #     outputs_t = [theano.gradient.grad_clip(param, -self.grad_clipping, \
-            #         self.grad_clipping) for param in outputs_t]
-
             return outputs_t
 
         # TODO: hid_init and state_init for the Controller
@@ -136,9 +131,3 @@ class NTMLayer(Layer):
                 hid_out = hids[1].dimshuffle(1, 0, 2)
 
         return hid_out
-
-
-if __name__ == '__main__':
-    import lasagne.layers
-    inp = lasagne.layers.InputLayer((None, None, 10))
-    ntm = NTM(inp, memory_shape=(128, 20), heads=[])

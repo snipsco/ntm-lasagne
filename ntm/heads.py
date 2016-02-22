@@ -20,7 +20,7 @@ class Head(Layer):
     docstring for HeadLayer
     """
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
-                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -40,14 +40,11 @@ class Head(Layer):
                  nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  weights_init=init.OneHot(),
                  learn_init=False,
-                 p=0.,
                  **kwargs):
 
         self.memory_size = memory_size
         self.basename = kwargs.get('name', 'head')
         super(Head, self).__init__(incoming, **kwargs)
-        self._srng = RandomStreams(np.random.randint(1, 2147462579))
-        self.p = p
 
         self.learn_init = learn_init
 
@@ -93,7 +90,7 @@ class Head(Layer):
             name='weights_init', trainable=learn_init, regularizable=False)
 
 
-    def get_output_for(self, h_t, w_tm1, M_t, deterministic=False, **kwargs):
+    def get_output_for(self, h_t, w_tm1, M_t, **kwargs):
         if self.sign is not None:
             sign_t = self.sign.get_output_for(h_t, **kwargs)
         else:
@@ -111,13 +108,7 @@ class Head(Layer):
 
         # Interpolation (3.3.2)
         g_t = T.addbroadcast(g_t, 1)
-        if deterministic or self.p == 0.:
-            w_g = g_t * w_c + (1. - g_t) * w_tm1
-        else:
-            droupout_gate = self._srng.binomial((self.input_shape[0], 1), p=1. - self.p)
-            droupout_gate = T.addbroadcast(droupout_gate, 1)
-            w_g = droupout_gate * (g_t * w_c + (1. - g_t) * w_tm1) \
-                + (1. - droupout_gate) * w_tm1
+        w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
         w_g_padded = w_g.dimshuffle(0, 'x', 'x', 1)
@@ -129,13 +120,7 @@ class Head(Layer):
             filter_shape=(self.input_shape[0], 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
-        if deterministic or self.p == 0.:
-            w_tilde = convolution[:, 0, 0, :]
-        else:
-            droupout_gate = self._srng.binomial((1, 1), p=1. - self.p)
-            droupout_gate = T.addbroadcast(droupout_gate, 1)
-            w_tilde = droupout_gate * convolution[:, 0, 0, :] \
-                    + (1. - droupout_gate) * w_g
+        w_tilde = convolution[:, 0, 0, :]
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 1)
@@ -162,7 +147,7 @@ class WriteHead(Head):
     docstring for WriteHead
     """
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
-                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -186,12 +171,11 @@ class WriteHead(Head):
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
                  nonlinearity_add=nonlinearities.ClippedLinear(low=0., high=1.),
-                 W_hid_to_sign_add=lasagne.init.GlorotUniform(),
+                 W_hid_to_sign_add=None,
                  b_hid_to_sign_add=lasagne.init.Constant(0.),
                  nonlinearity_sign_add=nonlinearities.ClippedLinear(low=-1., high=1.),
                  weights_init=init.OneHot(),
                  learn_init=False,
-                 p=0.,
                  **kwargs):
         super(WriteHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
@@ -200,8 +184,7 @@ class WriteHead(Head):
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
             W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
-            weights_init=weights_init, learn_init=learn_init, p=p,
-            **kwargs)
+            weights_init=weights_init, learn_init=learn_init, **kwargs)
     
         self.erase = DenseLayer(incoming, num_units=self.memory_size[1],
             W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=nonlinearity_erase,
@@ -237,7 +220,7 @@ class ReadHead(Head):
     docstring for ReadHead
     """
     def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
-                 W_hid_to_sign=lasagne.init.GlorotUniform(),
+                 W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
@@ -257,7 +240,6 @@ class ReadHead(Head):
                  nonlinearity_gamma=lambda x: 1. + lasagne.nonlinearities.rectify(x),
                  weights_init=init.OneHot(),
                  learn_init=False,
-                 p=0.,
                  **kwargs):
         super(ReadHead, self).__init__(incoming, num_shifts,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
@@ -266,5 +248,4 @@ class ReadHead(Head):
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
             W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
-            weights_init=weights_init, learn_init=learn_init, p=p,
-            **kwargs)
+            weights_init=weights_init, learn_init=learn_init, **kwargs)
