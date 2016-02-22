@@ -92,7 +92,6 @@ class NTMLayer(Layer):
 
             return [M_t, h_t, state_t] + write_weights_t + read_weights_t
 
-        # TODO: hid_init and state_init for the Controller
         memory_init = T.tile(self.memory.memory_init, (self.input_shape[0], 1, 1))
         memory_init = T.unbroadcast(memory_init, 0)
 
@@ -102,14 +101,17 @@ class NTMLayer(Layer):
         read_weights_init = [T.unbroadcast(T.dot(ones_vector, \
             head.weights_init), 0) for head in self.read_heads]
 
+        non_seqs = self.controller.get_params() + self.memory.get_params()
+        for head in self.heads:
+            non_seqs += head.get_params()
         # QKFIX: Remove the strict mode
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
             outputs_info=[memory_init] + self.controller.outputs_info + \
                          write_weights_init + read_weights_init,
-            # non_sequences=non_seqs,
-            strict=False)
+            non_sequences=non_seqs,
+            strict=True)
 
         # dimshuffle back to (n_batch, n_time_steps, n_features))
         if get_details:
