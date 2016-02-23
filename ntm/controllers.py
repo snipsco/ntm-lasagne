@@ -43,11 +43,6 @@ class Controller(Layer):
         self.num_reads = num_reads
 
     def step(self, input, reads, hidden, state, *args, **kwargs):
-        """
-        Returns (output, state) where
-            - 'output' is the true hidden state returned by the controller
-            - 'state' is the augmented hidden state (eg. state + cell for LSTM)
-        """
         raise NotImplementedError
 
     def get_output_shape_for(self, input_shape):

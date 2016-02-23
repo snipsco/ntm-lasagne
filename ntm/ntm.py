@@ -2,32 +2,46 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-from lasagne.layers import Layer, InputLayer
+from lasagne.layers import Layer
 import lasagne.init
-import lasagne.layers.helper as helper
+
 from heads import ReadHead, WriteHead
 
 
 class NTMLayer(Layer):
-    """
-    docstring for NTMLayer
+    r"""
+    A Neural Turing Machine layer.
+
+    Parameters
+    ----------
+    incoming: a :class:`lasagne.layers.Layer` instance
+        The layer feeding into the Neural Turing Machine. This
+        layer must match the incoming layer in the controller.
+    memory: a :class:`Memory` instance
+        The memory of the NTM.
+    controller: a :class:`Controller` instance
+        The controller of the NTM.
+    heads: a list of :class:`Head` instances
+        The read and write heads of the NTM.
+    only_return_final: bool
+        If ``True``, only return the final sequential output (e.g.
+        for tasks where a single target value for the entire
+        sequence is desired).  In this case, Theano makes an
+        optimization which saves memory.
     """
     def __init__(self, incoming,
                  memory,
                  controller,
                  heads,
-                 grad_clipping=None,
                  only_return_final=False,
                  **kwargs):
         super(NTMLayer, self).__init__(incoming, **kwargs)
 
-        # Populate the HeadLayers with memory & previous layers
         self.memory = memory
         self.controller = controller
         self.heads = heads
         self.write_heads = filter(lambda head: isinstance(head, WriteHead), heads)
         self.read_heads = filter(lambda head: isinstance(head, ReadHead), heads)
-        self.grad_clipping = grad_clipping
         self.only_return_final = only_return_final
 
     def get_output_shape_for(self, input_shapes):
