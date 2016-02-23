@@ -10,7 +10,7 @@ import lasagne.updates
 import lasagne.objectives
 import lasagne.init
 
-from ntm.ntm import NTMLayer
+from ntm.layers import NTMLayer
 from ntm.memory import Memory
 from ntm.controllers import DenseController
 from ntm.heads import WriteHead, ReadHead
