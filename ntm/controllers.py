@@ -14,7 +14,7 @@ class Controller(Layer):
     for the Neural Turing Machine. The controller is a neural network
     (feed-forward or recurrent) making the interface between the
     incoming layer (eg. an instance of :class:`lasagne.layers.InputLayer`)
-    and the NTM
+    and the NTM.
 
     Parameters
     ----------

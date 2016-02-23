@@ -332,14 +332,7 @@ class WriteHead(Head):
 
 class ReadHead(Head):
     r"""
-    Write head. In addition to the weight vector, the write head
-    also outputs an add vector :math:`a_{t}` and an erase vector
-    :math:`e_{t}` defined by
-
-    .. math ::
-        \delta_{t} &= \sigma_{delta}(h_{t} W_{delta} + b_{delta})\\
-        a_{t} &= \delta_{t} * \sigma_{a}(h_{t} W_{a} + b_{a})
-        e_{t} &= \sigma_{e}(h_{t} W_{e} + b_{e})
+    Read head.
 
     Parameters
     ----------
