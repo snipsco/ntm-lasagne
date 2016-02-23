@@ -2,13 +2,10 @@ import theano
 import theano.tensor as T
 import numpy as np
 
-from lasagne.layers import Layer, MergeLayer, DenseLayer, InputLayer
-from lasagne.layers.recurrent import Gate, LSTMLayer
+from lasagne.layers import Layer
+from lasagne.layers.recurrent import Gate
 import lasagne.nonlinearities
 import lasagne.init
-import lasagne.utils
-
-from collections import OrderedDict
 
 
 class Controller(Layer):

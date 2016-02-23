@@ -127,4 +127,4 @@ if __name__ == '__main__':
     ]
 
     dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
-        memory_shape=memory_shape, markers=markers, cmap=default_cmap)
+        memory_shape=(128, 20), markers=markers, cmap=default_cmap)
