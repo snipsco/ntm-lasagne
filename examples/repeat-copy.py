@@ -16,7 +16,7 @@ import lasagne.init
 
 from ntm.ntm import NTMLayer
 from ntm.memory import Memory
-from ntm.controllers import DenseController, RecurrentController
+from ntm.controllers import DenseController
 from ntm.heads import WriteHead, ReadHead
 from ntm.updates import graves_rmsprop
 
@@ -47,7 +47,7 @@ def model(input_var, batch_size=1, size=8, \
 
     # Neural Turing Machine Layer
     memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
-    controller = RecurrentController(l_input, memory_shape=memory_shape,
+    controller = DenseController(l_input, memory_shape=memory_shape,
         num_units=num_units, num_reads=1,
         nonlinearity=lasagne.nonlinearities.rectify,
         name='controller')
