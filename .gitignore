@@ -55,3 +55,14 @@ docs/_build/
 
 # PyBuilder
 target/
+
+
+## Temporary
+*.txt
+test/
+data/
+img/
+notebooks/
+animation/
+models/learning_curves/
+snapshots/
