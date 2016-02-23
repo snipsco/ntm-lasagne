@@ -14,6 +14,6 @@ setup(name='NTM-Lasagne',
         'numpy',
         'theano',
         'Lasagne'],
-    packages=find_packages(),
+    packages=['ntm'],
     include_package_data=False,
     zip_safe=False)
