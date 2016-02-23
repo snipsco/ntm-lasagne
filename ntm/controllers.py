@@ -58,6 +58,9 @@ class DenseController(Controller):
     r"""
     A fully connected (feed-forward) controller for the NTM.
 
+    .. math ::
+        h_t = \sigma(x_{t} W_{x} + r_{t} W_{r} + b_{x} + b_{r})
+
     Parameters
     ----------
     incoming: a :class:`lasagne.layers.Layer` instance
@@ -71,24 +74,24 @@ class DenseController(Controller):
     W_in_to_hid: callable, Numpy array or Theano shared variable
         If callable, initializer for the weights between the
         input and the hidden state. Otherwise a matrix with
-        shape ``(num_inputs, num_units)``.
+        shape ``(num_inputs, num_units)`` (:math:`W_{x}`).
     b_in_to_hid: callable, Numpy array, Theano shared variable or ``None``
         If callable, initializer for the biases between the
         input and the hidden state. If ``None``, the controller
         has no bias between the input and the hidden state. Otherwise
-        a 1D array with shape ``(num_units,)``.
+        a 1D array with shape ``(num_units,)`` (:math:`b_{x}`).
     W_reads_to_hid: callable, Numpy array or Theano shared variable
         If callable, initializer for the weights between the
         read vector and the hidden state. Otherwise a matrix with
-        shape ``(num_reads * memory_shape[1], num_units)``.
+        shape ``(num_reads * memory_shape[1], num_units)`` (:math:`W_{r}`).
     b_reads_to_hid: callable, Numpy array, Theano shared variable or ``None``
         If callable, initializer for the biases between the
         read vector and the hidden state. If ``None``, the controller
         has no bias between the read vector and the hidden state.
-        Otherwise a 1D array with shape ``(num_units,)``.
+        Otherwise a 1D array with shape ``(num_units,)`` (:math:`b_{r}`).
     nonlinearity: callable or ``None``
         The nonlinearity that is applied to the controller. If ``None``,
-        the controller will be linear.
+        the controller will be linear (:math:`\sigma`).
     hid_init: callable, np.ndarray or theano.shared
         Initializer for the initial hidden state (:math:`h_{0}`).
     learn_init: bool
@@ -147,7 +150,11 @@ class DenseController(Controller):
 
 class RecurrentController(Controller):
     r"""
-    A fully connected (feed-forward) controller for the NTM.
+    A "vanilla" recurrent controller for the NTM.
+
+    .. math ::
+        h_t = \sigma(x_{t} W_{x} + r_{t} W_{r} +
+              h_{t-1} W_{h} + b_{x} + b_{r} + b_{h})
 
     Parameters
     ----------
@@ -162,31 +169,33 @@ class RecurrentController(Controller):
     W_in_to_hid: callable, Numpy array or Theano shared variable
         If callable, initializer for the weights between the
         input and the hidden state. Otherwise a matrix with
-        shape ``(num_inputs, num_units)``.
+        shape ``(num_inputs, num_units)`` (:math:`W_{x}`).
     b_in_to_hid: callable, Numpy array, Theano shared variable or ``None``
         If callable, initializer for the biases between the
         input and the hidden state. If ``None``, the controller
         has no bias between the input and the hidden state. Otherwise
-        a 1D array with shape ``(num_units,)``.
+        a 1D array with shape ``(num_units,)`` (:math:`b_{x}`).
     W_reads_to_hid: callable, Numpy array or Theano shared variable
         If callable, initializer for the weights between the
         read vector and the hidden state. Otherwise a matrix with
-        shape ``(num_reads * memory_shape[1], num_units)``.
+        shape ``(num_reads * memory_shape[1], num_units)`` (:math:`W_{r}`).
     b_reads_to_hid: callable, Numpy array, Theano shared variable or ``None``
         If callable, initializer for the biases between the
         read vector and the hidden state. If ``None``, the controller
         has no bias between the read vector and the hidden state.
-        Otherwise a 1D array with shape ``(num_units,)``.
+        Otherwise a 1D array with shape ``(num_units,)`` (:math:`b_{r}`).
     W_hid_to_hid: callable, Numpy array or Theano shared variable
         If callable, initializer for the weights in the hidden-to-hidden
-        update. Otherwise a matrix with shape ``(num_units, num_units)``.
+        update. Otherwise a matrix with shape ``(num_units, num_units)``
+        (:math:`W_{h}`).
     b_hid_to_hid: callable, Numpy array, Theano shared variable or ``None``
         If callable, initializer for the biases in the hidden-to-hidden
         update. If ``None``, the controller has no bias in the
-        hidden-to-hidden update. Otherwise a 1D array with shape ``(num_units,)``.
+        hidden-to-hidden update. Otherwise a 1D array with shape
+        ``(num_units,)`` (:math:`b_{h}`).
     nonlinearity: callable or ``None``
         The nonlinearity that is applied to the controller. If ``None``,
-        the controller will be linear.
+        the controller will be linear (:math:`\sigma`).
     hid_init: callable, np.ndarray or theano.shared
         Initializer for the initial hidden state (:math:`h_{0}`).
     learn_init: bool
