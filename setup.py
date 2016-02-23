@@ -2,8 +2,8 @@ from setuptools import setup
 from setuptools import find_packages
 
 
-setup(name='Lasagne-NTM',
-    version='0.0.1',
+setup(name='NTM-Lasagne',
+    version='0.1.0',
     description='Neural Turing Machines in Theano with Lasagne',
     author='Tristan Deleu',
     author_email='tristan.deleu@snips.ai',

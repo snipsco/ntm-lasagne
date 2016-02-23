@@ -6,6 +6,9 @@ NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](htt
 `TODO`
 
 ### Example
+
+Here is minimal example to define a `NTMLayer`. For more detailed examples, check the [`examples` folder](examples/).
+
 ```python
 # Neural Turing Machine Layer
 memory = Memory((128, 20), memory_init=lasagne.init.Constant(1e-6),
