@@ -47,18 +47,18 @@ def model(input_var, batch_size=1, size=8, \
 
     # Neural Turing Machine Layer
     memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
-    controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
+    controller = DenseController(l_input, memory_shape=memory_shape,
+        num_units=num_units, num_reads=1,
         nonlinearity=lasagne.nonlinearities.rectify,
         name='controller')
     heads = [
         WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
-            W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, W_hid_to_sign_add=None,
+            nonlinearity_key=lasagne.nonlinearities.rectify,
             nonlinearity_add=lasagne.nonlinearities.rectify),
         ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
-            W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify)
+            nonlinearity_key=lasagne.nonlinearities.rectify)
     ]
-    l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-          heads=heads)
+    l_ntm = NTMLayer(l_input, memory=memory, controller=controller, heads=heads)
 
     # Output Layer
     l_output_reshape = ReshapeLayer(l_ntm, (-1, num_units))

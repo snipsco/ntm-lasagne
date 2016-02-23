@@ -15,13 +15,14 @@ class Controller(Layer):
     """
     docstring for Controller
     """
-    def __init__(self, incoming, num_units, num_reads,
+    def __init__(self, incoming, memory_shape, num_units, num_reads,
                  hid_init=lasagne.init.GlorotUniform(),
                  learn_init=False,
                  **kwargs):
         super(Controller, self).__init__(incoming, **kwargs)
         self.hid_init = self.add_param(hid_init, (1, num_units),
             name='hid_init', regularizable=False, trainable=learn_init)
+        self.memory_shape = memory_shape
         self.num_units = num_units
         self.num_reads = num_reads
 
@@ -41,7 +42,7 @@ class DenseController(Controller):
     """
     docstring for DenseController
     """
-    def __init__(self, incoming, num_units, num_reads,
+    def __init__(self, incoming, memory_shape, num_units, num_reads,
                  W_in_to_hid=lasagne.init.GlorotUniform(),
                  b_in_to_hid=lasagne.init.Constant(0.),
                  W_reads_to_hid=lasagne.init.GlorotUniform(),
@@ -50,7 +51,7 @@ class DenseController(Controller):
                  hid_init=lasagne.init.GlorotUniform(),
                  learn_init=False,
                  **kwargs):
-        super(DenseController, self).__init__(incoming, num_units,
+        super(DenseController, self).__init__(incoming, memory_shape, num_units,
                                               num_reads, hid_init, learn_init,
                                               **kwargs)
         self.nonlinearity = (lasagne.nonlinearities.identity if 
@@ -66,7 +67,7 @@ class DenseController(Controller):
         self.W_in_to_hid, self.b_in_to_hid = add_weight_and_bias_params(num_inputs,
             W_in_to_hid, b_in_to_hid, name='in_to_hid')
         # Read vectors / Hidden parameters
-        self.W_reads_to_hid, self.b_reads_to_hid = add_weight_and_bias_params(num_reads,
+        self.W_reads_to_hid, self.b_reads_to_hid = add_weight_and_bias_params(self.num_reads * self.memory_shape[1],
             W_reads_to_hid, b_reads_to_hid, name='reads_to_hid')
 
     def step(self, input, reads, *args):
