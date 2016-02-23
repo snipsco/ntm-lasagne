@@ -12,6 +12,7 @@ import lasagne.layers
 import lasagne.nonlinearities
 import lasagne.updates
 import lasagne.objectives
+import lasagne.init
 
 from ntm.ntm import NTMLayer
 from ntm.memory import Memory
@@ -31,7 +32,7 @@ except ImportError:
 
 # Save model snapshots
 snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-                     '-associative-recall'.format(datetime.now())
+                     '-repeat-copy'.format(datetime.now())
 os.mkdir(snapshot_directory)
 print 'Snapshots directory: %s' % (snapshot_directory,)
 
@@ -92,14 +93,14 @@ try:
         score = train_fn(example_input, example_output)
         scores.append(score)
         all_scores.append(score)
+        if i % 200 == 0:
+            with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
+                np.save(f, lasagne.layers.get_all_param_values(l_output))
         if i % 500 == 0:
             mean_scores = np.mean(scores)
             if (best_score < 0) or (mean_scores < best_score):
                 best_score = mean_scores
                 with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
-                    np.save(f, lasagne.layers.get_all_param_values(l_output))
-            if i % 2000 == 0:
-                with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
                     np.save(f, lasagne.layers.get_all_param_values(l_output))
             if mean_scores < 0.01:
                 learning_rate.set_value(1e-5)

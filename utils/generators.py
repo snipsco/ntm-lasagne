@@ -61,7 +61,7 @@ class CopyTask(Task):
 class RepeatCopyTask(Task):
 
     def __init__(self, size, max_length, max_repeats=20, min_length=1, \
-        min_repeats=1, unary=False, max_iter=None, batch_size=1):
+        min_repeats=1, unary=False, max_iter=None, batch_size=1, end_marker=False):
         super(RepeatCopyTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.size = size
         self.min_length = min_length
@@ -69,6 +69,7 @@ class RepeatCopyTask(Task):
         self.min_repeats = min_repeats
         self.max_repeats = max_repeats
         self.unary = unary
+        self.end_marker = end_marker
 
     def sample_params(self, length=None, repeats=None):
         if length is None:
@@ -81,9 +82,9 @@ class RepeatCopyTask(Task):
         sequence = np.random.binomial(1, 0.5, (self.batch_size, length, self.size))
         num_repeats_length = repeats if self.unary else 1
         example_input = np.zeros((self.batch_size, (repeats + 1) * length + \
-            num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
+            num_repeats_length + 1 + self.end_marker, self.size + 2), dtype=theano.config.floatX)
         example_output = np.zeros((self.batch_size, (repeats + 1) * length + \
-            num_repeats_length + 1, self.size + 2), dtype=theano.config.floatX)
+            num_repeats_length + 1 + self.end_marker, self.size + 2), dtype=theano.config.floatX)
 
         example_input[:, :length, :self.size] = sequence
         for j in range(repeats):
@@ -94,6 +95,8 @@ class RepeatCopyTask(Task):
         else:
             example_input[:, length, -2] = repeats / float(self.max_repeats)
         example_input[:, length + num_repeats_length, -1] = 1
+        if self.end_marker:
+            example_output[:, -1, -1] = 1
 
         return example_input, example_output
 
@@ -175,6 +178,7 @@ class DynamicNGramsTask(Task):
             index = ((index & mask) << 1) + b
 
         return sequence[:,:-1], sequence[:,1:]
+
 
 class DyckWordsTask(Task):
 
