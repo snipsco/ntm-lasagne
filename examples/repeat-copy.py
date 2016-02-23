@@ -16,7 +16,7 @@ import lasagne.init
 
 from ntm.ntm import NTMLayer
 from ntm.memory import Memory
-from ntm.controllers import DenseController
+from ntm.controllers import DenseController, RecurrentController
 from ntm.heads import WriteHead, ReadHead
 from ntm.updates import graves_rmsprop
 
@@ -47,15 +47,15 @@ def model(input_var, batch_size=1, size=8, \
 
     # Neural Turing Machine Layer
     memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
-    controller = DenseController(l_input, memory_shape=memory_shape,
+    controller = RecurrentController(l_input, memory_shape=memory_shape,
         num_units=num_units, num_reads=1,
         nonlinearity=lasagne.nonlinearities.rectify,
         name='controller')
     heads = [
-        WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
+        WriteHead(controller, num_shifts=3, memory_shape=memory_shape, name='write', learn_init=False,
             nonlinearity_key=lasagne.nonlinearities.rectify,
             nonlinearity_add=lasagne.nonlinearities.rectify),
-        ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
+        ReadHead(controller, num_shifts=3, memory_shape=memory_shape, name='read', learn_init=False,
             nonlinearity_key=lasagne.nonlinearities.rectify)
     ]
     l_ntm = NTMLayer(l_input, memory=memory, controller=controller, heads=heads)
@@ -99,18 +99,18 @@ if __name__ == '__main__':
             all_scores.append(score)
             if i % 500 == 0:
                 mean_scores = np.mean(scores)
-                if (best_score < 0) or (mean_scores < best_score):
-                    best_score = mean_scores
-                    with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
-                        np.save(f, lasagne.layers.get_all_param_values(l_output))
-                if i % 2000 == 0:
-                    with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
-                        np.save(f, lasagne.layers.get_all_param_values(l_output))
+                # if (best_score < 0) or (mean_scores < best_score):
+                #     best_score = mean_scores
+                #     with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
+                #         np.save(f, lasagne.layers.get_all_param_values(l_output))
+                # if i % 2000 == 0:
+                #     with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
+                #         np.save(f, lasagne.layers.get_all_param_values(l_output))
                 print 'Batch #%d: %.6f' % (i, mean_scores)
                 scores = []
     except KeyboardInterrupt:
-        with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
-            np.save(f, all_scores)
+        # with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
+        #     np.save(f, all_scores)
         pass
 
     # Visualization

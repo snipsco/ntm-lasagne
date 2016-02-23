@@ -19,7 +19,7 @@ class Head(Layer):
     """
     docstring for HeadLayer
     """
-    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+    def __init__(self, incoming, num_shifts=3, memory_shape=(128, 20),
                  W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
@@ -41,15 +41,14 @@ class Head(Layer):
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
-
-        self.memory_size = memory_size
-        self.basename = kwargs.get('name', 'head')
         super(Head, self).__init__(incoming, **kwargs)
 
+        self.memory_shape = memory_shape
+        self.basename = kwargs.get('name', 'head')
         self.learn_init = learn_init
 
         if W_hid_to_sign is not None:
-            self.sign = DenseLayer(incoming, num_units=self.memory_size[1],
+            self.sign = DenseLayer(incoming, num_units=self.memory_shape[1],
                 W=W_hid_to_sign, b=b_hid_to_sign, nonlinearity=nonlinearity_sign,
                 name=self.basename + '.sign')
             self.W_hid_to_sign, self.b_hid_to_sign = self.sign.W, self.sign.b
@@ -57,7 +56,7 @@ class Head(Layer):
             self.sign = None
             self.W_hid_to_sign, self.b_hid_to_sign = None, None
 
-        self.key = DenseLayer(incoming, num_units=self.memory_size[1],
+        self.key = DenseLayer(incoming, num_units=self.memory_shape[1],
             W=W_hid_to_key, b=b_hid_to_key, nonlinearity=nonlinearity_key,
             name=self.basename + '.key')
         self.W_hid_to_key, self.b_hid_to_key = self.key.W, self.key.b
@@ -83,10 +82,8 @@ class Head(Layer):
             name=self.basename + '.gamma')
         self.W_hid_to_gamma, self.b_hid_to_gamma = self.gamma.W, self.gamma.b
 
-        # TODO: Replace the 1 by the number of batches
-        # /!\ WARNING: NOT TRUE
         self.weights_init = self.add_param(
-            weights_init, (1, self.memory_size[0]),
+            weights_init, (1, self.memory_shape[0]),
             name='weights_init', trainable=learn_init, regularizable=False)
 
 
@@ -116,7 +113,7 @@ class Head(Layer):
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
         w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g_padded, conv_filter,
-            input_shape=(self.input_shape[0], 1, 1, self.memory_size[0] + pad[0] + pad[1]),
+            input_shape=(self.input_shape[0], 1, 1, self.memory_shape[0] + pad[0] + pad[1]),
             filter_shape=(self.input_shape[0], 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
@@ -146,7 +143,7 @@ class WriteHead(Head):
     """
     docstring for WriteHead
     """
-    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+    def __init__(self, incoming, num_shifts=3, memory_shape=(128, 20),
                  W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
@@ -177,7 +174,7 @@ class WriteHead(Head):
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
-        super(WriteHead, self).__init__(incoming, num_shifts,
+        super(WriteHead, self).__init__(incoming, num_shifts=num_shifts, memory_shape=memory_shape,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
@@ -186,18 +183,18 @@ class WriteHead(Head):
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init, **kwargs)
     
-        self.erase = DenseLayer(incoming, num_units=self.memory_size[1],
+        self.erase = DenseLayer(incoming, num_units=self.memory_shape[1],
             W=W_hid_to_erase, b=b_hid_to_erase, nonlinearity=nonlinearity_erase,
             name=self.basename + '.erase')
         self.W_hid_to_erase, self.b_hid_to_erase = self.erase.W, self.erase.b
 
-        self.add = DenseLayer(incoming, num_units=self.memory_size[1],
+        self.add = DenseLayer(incoming, num_units=self.memory_shape[1],
             W=W_hid_to_add, b=b_hid_to_add, nonlinearity=nonlinearity_add,
             name=self.basename + '.add')
         self.W_hid_to_add, self.b_hid_to_add = self.add.W, self.add.b
 
         if W_hid_to_sign_add is not None:
-            self.sign_add = DenseLayer(incoming, num_units=self.memory_size[1],
+            self.sign_add = DenseLayer(incoming, num_units=self.memory_shape[1],
                 W=W_hid_to_sign_add, b=b_hid_to_sign_add, nonlinearity=nonlinearity_sign_add,
                 name=self.basename + '.sign_add')
             self.W_hid_to_sign_add, self.b_hid_to_sign_add = self.sign_add.W, self.sign_add.b
@@ -219,7 +216,7 @@ class ReadHead(Head):
     """
     docstring for ReadHead
     """
-    def __init__(self, incoming, num_shifts=3, memory_size=(128, 20),
+    def __init__(self, incoming, num_shifts=3, memory_shape=(128, 20),
                  W_hid_to_sign=None,
                  b_hid_to_sign=lasagne.init.Constant(0.),
                  nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
@@ -241,7 +238,7 @@ class ReadHead(Head):
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
-        super(ReadHead, self).__init__(incoming, num_shifts,
+        super(ReadHead, self).__init__(incoming, num_shifts=num_shifts, memory_shape=memory_shape,
             W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,

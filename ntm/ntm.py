@@ -104,7 +104,7 @@ class NTMLayer(Layer):
         non_seqs = self.controller.get_params() + self.memory.get_params()
         for head in self.heads:
             non_seqs += head.get_params()
-        # QKFIX: Remove the strict mode
+
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
@@ -113,7 +113,7 @@ class NTMLayer(Layer):
             non_sequences=non_seqs,
             strict=True)
 
-        # dimshuffle back to (n_batch, n_time_steps, n_features))
+        # dimshuffle back to (n_batch, n_time_steps, n_features)
         if get_details:
             hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
             hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
