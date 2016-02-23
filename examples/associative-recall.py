@@ -1,10 +1,6 @@
 import theano
 import theano.tensor as T
 import numpy as np
-import random
-import os
-from datetime import datetime
-
 import matplotlib.pyplot as plt
 
 from lasagne.layers import InputLayer, DenseLayer, ReshapeLayer
@@ -23,109 +19,95 @@ from ntm.updates import graves_rmsprop
 from utils.generators import AssociativeRecallTask
 from utils.visualization import Dashboard
 
-try:
-    from palettable.cubehelix import jim_special_16
-    default_cmap = jim_special_16.mpl_colormap
-except ImportError:
-    default_cmap = 'bone'
 
 
-# Save model snapshots
-snapshot_directory = 'snapshots/associative-recall/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-                     '-repeat-copy'.format(datetime.now())
-os.mkdir(snapshot_directory)
-print 'Snapshots directory: %s' % (snapshot_directory,)
+def model(input_var, batch_size=1, size=8, num_units=100, memory_shape=(128, 20)):
 
-print np.random.get_state()
+    # Input Layer
+    l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
+    _, seqlen, _ = l_input.input_var.shape
 
-input_var, target_var = T.dtensor3s('input', 'target')
+    # Neural Turing Machine Layer
+    memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
+    controller = DenseController(l_input, memory_shape=memory_shape,
+        num_units=num_units, num_reads=1,
+        nonlinearity=lasagne.nonlinearities.rectify,
+        name='controller')
+    heads = [
+        WriteHead(controller, num_shifts=3, memory_shape=memory_shape, name='write', learn_init=False,
+            nonlinearity_key=lasagne.nonlinearities.rectify,
+            nonlinearity_add=lasagne.nonlinearities.rectify),
+        ReadHead(controller, num_shifts=3, memory_shape=memory_shape, name='read', learn_init=False,
+            nonlinearity_key=lasagne.nonlinearities.rectify)
+    ]
+    l_ntm = NTMLayer(l_input, memory=memory, controller=controller, heads=heads)
 
-num_units = 100
-size = 8
-memory_shape = (128, 20)
-batch_size = 1
+    # Output Layer
+    l_output_reshape = ReshapeLayer(l_ntm, (-1, num_units))
+    l_output_dense = DenseLayer(l_output_reshape, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
+        name='dense')
+    l_output = ReshapeLayer(l_output_dense, (batch_size, seqlen, size + 2))
 
-# Input Layer
-l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
-_, seqlen, _ = l_input.input_var.shape
-
-# Neural Turing Machine Layer
-memory = Memory(memory_shape, name='memory', memory_init=lasagne.init.Constant(1e-6), learn_init=False)
-controller = DenseController(l_input, num_units=num_units, num_reads=1 * memory_shape[1], 
-    nonlinearity=lasagne.nonlinearities.rectify,
-    name='controller')
-heads = [
-    WriteHead(controller, num_shifts=3, memory_size=memory_shape, name='write', learn_init=False,
-        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, W_hid_to_sign_add=None,
-        nonlinearity_add=lasagne.nonlinearities.rectify, p=0.),
-    ReadHead(controller, num_shifts=3, memory_size=memory_shape, name='read', learn_init=False,
-        W_hid_to_sign=None, nonlinearity_key=lasagne.nonlinearities.rectify, p=0.)
-]
-l_ntm = NTMLayer(l_input, memory=memory, controller=controller, \
-      heads=heads)
-
-# Output Layer
-l_shp = ReshapeLayer(l_ntm, (-1, num_units))
-l_dense = DenseLayer(l_shp, num_units=size + 2, nonlinearity=lasagne.nonlinearities.sigmoid, \
-    name='dense')
-l_output = ReshapeLayer(l_dense, (batch_size, seqlen, size + 2))
+    return l_output, l_ntm
 
 
-pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
-loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
+if __name__ == '__main__':
+    # Define the input and expected output variable
+    input_var, target_var = T.dtensor3s('input', 'target')
+    # The generator to sample examples from
+    generator = AssociativeRecallTask(batch_size=1, max_iter=1000000, size=8, max_num_items=6, \
+        min_item_length=1, max_item_length=3)
+    # The model (1-layer Neural Turing Machine)
+    l_output, l_ntm = model(input_var, batch_size=generator.batch_size,
+        size=generator.size, num_units=100, memory_shape=(128, 20))
+    # The generated output variable and the loss function
+    pred_var = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
+    loss = T.mean(lasagne.objectives.binary_crossentropy(pred_var, target_var))
+    # Create the update expressions
+    params = lasagne.layers.get_all_params(l_output, trainable=True)
+    learning_rate = theano.shared(1e-4)
+    updates = lasagne.updates.adam(loss, params, learning_rate=learning_rate)
+    # Compile the function for a training step, as well as the prediction function and
+    # a utility function to get the inner details of the NTM
+    train_fn = theano.function([input_var, target_var], loss, updates=updates)
+    ntm_fn = theano.function([input_var], pred_var)
+    ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
-params = lasagne.layers.get_all_params(l_output, trainable=True)
-learning_rate = theano.shared(1e-4)
-updates = lasagne.updates.adam(loss, params, learning_rate=learning_rate)
+    # Training
+    try:
+        scores, all_scores = [], []
+        for i, (example_input, example_output) in generator:
+            score = train_fn(example_input, example_output)
+            scores.append(score)
+            all_scores.append(score)
+            if i % 500 == 0:
+                mean_scores = np.mean(scores)
+                if mean_scores < 0.01:
+                    learning_rate.set_value(1e-5)
+                print 'Batch #%d: %.6f' % (i, mean_scores)
+                scores = []
+    except KeyboardInterrupt:
+        pass
 
-train_fn = theano.function([input_var, target_var], loss, updates=updates)
-ntm_fn = theano.function([input_var], pred)
-ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, deterministic=True, get_details=True))
+    # Visualization
+    def marker1(params):
+        return params['num_items'] * (params['item_length'] + 1)
+    def marker2(params):
+        return (params['num_items'] + 1) * (params['item_length'] + 1)
+    markers = [
+        {
+            'location': marker1,
+            'style': {'color': 'red', 'ls': '-'}
+        },
+        {
+            'location': marker2,
+            'style': {'color': 'green', 'ls': '-'}
+        }
+    ]
 
-# Training
-generator = AssociativeRecallTask(batch_size=batch_size, max_iter=5000000, size=size, max_num_items=6, \
-    min_item_length=1, max_item_length=3)
+    dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
+        memory_shape=(128, 20), markers=markers, cmap='bone')
 
-try:
-    scores, all_scores = [], []
-    best_score = -1.
-    for i, (example_input, example_output) in generator:
-        score = train_fn(example_input, example_output)
-        scores.append(score)
-        all_scores.append(score)
-        if i % 200 == 0:
-            with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
-                np.save(f, lasagne.layers.get_all_param_values(l_output))
-        if i % 500 == 0:
-            mean_scores = np.mean(scores)
-            if (best_score < 0) or (mean_scores < best_score):
-                best_score = mean_scores
-                with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
-                    np.save(f, lasagne.layers.get_all_param_values(l_output))
-            if mean_scores < 0.01:
-                learning_rate.set_value(1e-5)
-            print 'Batch #%d: %.6f' % (i, mean_scores)
-            scores = []
-except KeyboardInterrupt:
-    with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
-        np.save(f, all_scores)
-    pass
-
-# Visualization
-def marker1(params):
-    return params['num_items'] * (params['item_length'] + 1)
-def marker2(params):
-    return (params['num_items'] + 1) * (params['item_length'] + 1)
-markers = [
-    {
-        'location': marker1,
-        'style': {'color': 'red', 'ls': '-'}
-    },
-    {
-        'location': marker2,
-        'style': {'color': 'green', 'ls': '-'}
-    }
-]
-
-dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
-    memory_shape=memory_shape, markers=markers, cmap=default_cmap)
+    # Example
+    params = generator.sample_params()
+    dashboard.sample(**params)

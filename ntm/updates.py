@@ -36,7 +36,7 @@ def graves_rmsprop(loss_or_grads, params, learning_rate=1e-4, chi=0.95, alpha=0.
                               broadcastable=param.broadcastable)
         n_ip1 = chi * n + (1. - chi) * grad ** 2
         g_ip1 = chi * g + (1. - chi) * grad
-        delta_ip1 = alpha * delta - beta * grad / T.sqrt(n_ip1 + \
+        delta_ip1 = alpha * delta - learning_rate * grad / T.sqrt(n_ip1 + \
                     g_ip1 ** 2 + epsilon)
         updates[n] = n_ip1
         updates[g] = g_ip1

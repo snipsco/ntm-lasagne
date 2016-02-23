@@ -33,11 +33,13 @@ class Task(object):
 
 class CopyTask(Task):
 
-    def __init__(self, size, max_length, min_length=1, max_iter=None, batch_size=1):
+    def __init__(self, size, max_length, min_length=1, max_iter=None, \
+        batch_size=1, end_marker=False):
         super(CopyTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
         self.size = size
         self.min_length = min_length
         self.max_length = max_length
+        self.end_marker = end_marker
 
     def sample_params(self, length=None):
         if length is None:
@@ -46,14 +48,16 @@ class CopyTask(Task):
 
     def sample(self, length):
         sequence = np.random.binomial(1, 0.5, (self.batch_size, length, self.size))
-        example_input = np.zeros((self.batch_size, 2 * length + 1, self.size + 1), \
-            dtype=theano.config.floatX)
-        example_output = np.zeros((self.batch_size, 2 * length + 1, self.size + 1), \
-            dtype=theano.config.floatX)
+        example_input = np.zeros((self.batch_size, 2 * length + 1 + self.end_marker, \
+            self.size + 1), dtype=theano.config.floatX)
+        example_output = np.zeros((self.batch_size, 2 * length + 1 + self.end_marker, \
+            self.size + 1), dtype=theano.config.floatX)
 
         example_input[:, :length, :self.size] = sequence
-        example_output[:, length + 1:, :self.size] = sequence
         example_input[:, length, -1] = 1
+        example_output[:, length + 1:2 * length + 1, :self.size] = sequence
+        if self.end_marker:
+            example_output[:, -1, -1] = 1
 
         return example_input, example_output
 

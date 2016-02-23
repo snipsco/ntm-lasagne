@@ -1,10 +1,6 @@
 import theano
 import theano.tensor as T
 import numpy as np
-import random
-import os
-from datetime import datetime
-
 import matplotlib.pyplot as plt
 
 from lasagne.layers import InputLayer, DenseLayer, ReshapeLayer
@@ -23,23 +19,8 @@ from ntm.updates import graves_rmsprop
 from utils.generators import RepeatCopyTask
 from utils.visualization import Dashboard
 
-try:
-    from palettable.cubehelix import jim_special_16
-    default_cmap = jim_special_16.mpl_colormap
-except ImportError:
-    default_cmap = 'bone'
 
-
-# Save model snapshots
-# snapshot_directory = 'snapshots/repeat-copy/{0:%y}{0:%m}{0:%d}-{0:%H}{0:%M}{0:%S}'\
-#                      '-associative-recall'.format(datetime.now())
-# os.mkdir(snapshot_directory)
-# print 'Snapshots directory: %s' % (snapshot_directory,)
-
-# print np.random.get_state()
-
-def model(input_var, batch_size=1, size=8, \
-    num_units=100, memory_shape=(128, 20)):
+def model(input_var, batch_size=1, size=8, num_units=100, memory_shape=(128, 20)):
 
     # Input Layer
     l_input = InputLayer((batch_size, None, size + 2), input_var=input_var)
@@ -68,48 +49,40 @@ def model(input_var, batch_size=1, size=8, \
 
     return l_output, l_ntm
 
+
 if __name__ == '__main__':
+    # Define the input and expected output variable
     input_var, target_var = T.dtensor3s('input', 'target')
-
-    generator = RepeatCopyTask(batch_size=1, max_iter=500000, size=8, min_length=3, \
+    # The generator to sample examples from
+    generator = RepeatCopyTask(batch_size=1, max_iter=1000000, size=8, min_length=3, \
         max_length=5, max_repeats=5, unary=True, end_marker=True)
-
+    # The model (1-layer Neural Turing Machine)
     l_output, l_ntm = model(input_var, batch_size=generator.batch_size,
         size=generator.size, num_units=100, memory_shape=(128, 20))
-
-    pred = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
-    loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
-
+    # The generated output variable and the loss function
+    pred_var = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
+    loss = T.mean(lasagne.objectives.binary_crossentropy(pred_var, target_var))
+    # Create the update expressions
     params = lasagne.layers.get_all_params(l_output, trainable=True)
-    # updates = graves_rmsprop(loss, params, learning_rate=1e-3)
     updates = lasagne.updates.adam(loss, params, learning_rate=5e-4)
-
+    # Compile the function for a training step, as well as the prediction function and
+    # a utility function to get the inner details of the NTM
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
-    ntm_fn = theano.function([input_var], pred)
+    ntm_fn = theano.function([input_var], pred_var)
     ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
     # Training
     try:
         scores, all_scores = [], []
-        best_score = -1.
         for i, (example_input, example_output) in generator:
             score = train_fn(example_input, example_output)
             scores.append(score)
             all_scores.append(score)
             if i % 500 == 0:
                 mean_scores = np.mean(scores)
-                # if (best_score < 0) or (mean_scores < best_score):
-                #     best_score = mean_scores
-                #     with open(os.path.join(snapshot_directory, 'model_best.npy'), 'w') as f:
-                #         np.save(f, lasagne.layers.get_all_param_values(l_output))
-                # if i % 2000 == 0:
-                #     with open(os.path.join(snapshot_directory, 'model_%d.npy' % i), 'w') as f:
-                #         np.save(f, lasagne.layers.get_all_param_values(l_output))
                 print 'Batch #%d: %.6f' % (i, mean_scores)
                 scores = []
     except KeyboardInterrupt:
-        # with open(os.path.join(snapshot_directory, 'learning_curve.npy'), 'w') as f:
-        #     np.save(f, all_scores)
         pass
 
     # Visualization
@@ -126,4 +99,8 @@ if __name__ == '__main__':
     ]
 
     dashboard = Dashboard(generator=generator, ntm_fn=ntm_fn, ntm_layer_fn=ntm_layer_fn, \
-        memory_shape=(128, 20), markers=markers, cmap=default_cmap)
+        memory_shape=(128, 20), markers=markers, cmap='bone')
+
+    # Example
+    params = generator.sample_params()
+    dashboard.sample(**params)
