@@ -86,10 +86,9 @@ if __name__ == '__main__':
 
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
     ntm_fn = theano.function([input_var], pred)
-    # ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
+    ntm_layer_fn = theano.function([input_var], lasagne.layers.get_output(l_ntm, get_details=True))
 
     # Training
-
     try:
         scores, all_scores = [], []
         best_score = -1.

@@ -9,8 +9,27 @@ import lasagne.init
 
 
 class Controller(Layer):
-    """
-    docstring for Controller
+    r"""
+    The base class :class:`Controller` represents a generic controller
+    for the Neural Turing Machine. The controller is a neural network
+    (feed-forward or recurrent) making the interface between the
+    incoming layer (eg. an instance of :class:`lasagne.layers.InputLayer`)
+    and the NTM
+
+    Parameters
+    ----------
+    incoming: a :class:`lasagne.layers.Layer` instance
+        The layer feeding into the Neural Turing Machine.
+    memory_shape: tuple
+        Shape of the NTM's memory.
+    num_units: int
+        Number of hidden units in the controller.
+    num_reads: int
+        Number of read heads in the Neural Turing Machine.
+    hid_init: callable, Numpy array or Theano shared variable
+        Initializer for the initial hidden state (:math:`h_{0}`).
+    learn_init: bool
+        If ``True``, initial hidden values are learned.
     """
     def __init__(self, incoming, memory_shape, num_units, num_reads,
                  hid_init=lasagne.init.GlorotUniform(),
@@ -36,8 +55,44 @@ class Controller(Layer):
 
 
 class DenseController(Controller):
-    """
-    docstring for DenseController
+    r"""
+    A fully connected (feed-forward) controller for the NTM.
+
+    Parameters
+    ----------
+    incoming: a :class:`lasagne.layers.Layer` instance
+        The layer feeding into the Neural Turing Machine.
+    memory_shape: tuple
+        Shape of the NTM's memory.
+    num_units: int
+        Number of hidden units in the controller.
+    num_reads: int
+        Number of read heads in the Neural Turing Machine.
+    W_in_to_hid: callable, Numpy array or Theano shared variable
+        If callable, initializer for the weights between the
+        input and the hidden state. Otherwise a matrix with
+        shape ``(num_inputs, num_units)``.
+    b_in_to_hid: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer for the biases between the
+        input and the hidden state. If ``None``, the controller
+        has no bias between the input and the hidden state. Otherwise
+        a 1D array with shape ``(num_units,)``.
+    W_reads_to_hid: callable, Numpy array or Theano shared variable
+        If callable, initializer for the weights between the
+        read vector and the hidden state. Otherwise a matrix with
+        shape ``(num_reads * memory_shape[1], num_units)``.
+    b_reads_to_hid: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer for the biases between the
+        read vector and the hidden state. If ``None``, the controller
+        has no bias between the read vector and the hidden state.
+        Otherwise a 1D array with shape ``(num_units,)``.
+    nonlinearity: callable or ``None``
+        The nonlinearity that is applied to the controller. If ``None``,
+        the controller will be linear.
+    hid_init: callable, np.ndarray or theano.shared
+        Initializer for the initial hidden state (:math:`h_{0}`).
+    learn_init: bool
+        If ``True``, initial hidden values are learned.
     """
     def __init__(self, incoming, memory_shape, num_units, num_reads,
                  W_in_to_hid=lasagne.init.GlorotUniform(),
@@ -91,8 +146,51 @@ class DenseController(Controller):
 
 
 class RecurrentController(Controller):
-    """
-    docstring for RecurrentController
+    r"""
+    A fully connected (feed-forward) controller for the NTM.
+
+    Parameters
+    ----------
+    incoming: a :class:`lasagne.layers.Layer` instance
+        The layer feeding into the Neural Turing Machine.
+    memory_shape: tuple
+        Shape of the NTM's memory.
+    num_units: int
+        Number of hidden units in the controller.
+    num_reads: int
+        Number of read heads in the Neural Turing Machine.
+    W_in_to_hid: callable, Numpy array or Theano shared variable
+        If callable, initializer for the weights between the
+        input and the hidden state. Otherwise a matrix with
+        shape ``(num_inputs, num_units)``.
+    b_in_to_hid: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer for the biases between the
+        input and the hidden state. If ``None``, the controller
+        has no bias between the input and the hidden state. Otherwise
+        a 1D array with shape ``(num_units,)``.
+    W_reads_to_hid: callable, Numpy array or Theano shared variable
+        If callable, initializer for the weights between the
+        read vector and the hidden state. Otherwise a matrix with
+        shape ``(num_reads * memory_shape[1], num_units)``.
+    b_reads_to_hid: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer for the biases between the
+        read vector and the hidden state. If ``None``, the controller
+        has no bias between the read vector and the hidden state.
+        Otherwise a 1D array with shape ``(num_units,)``.
+    W_hid_to_hid: callable, Numpy array or Theano shared variable
+        If callable, initializer for the weights in the hidden-to-hidden
+        update. Otherwise a matrix with shape ``(num_units, num_units)``.
+    b_hid_to_hid: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer for the biases in the hidden-to-hidden
+        update. If ``None``, the controller has no bias in the
+        hidden-to-hidden update. Otherwise a 1D array with shape ``(num_units,)``.
+    nonlinearity: callable or ``None``
+        The nonlinearity that is applied to the controller. If ``None``,
+        the controller will be linear.
+    hid_init: callable, np.ndarray or theano.shared
+        Initializer for the initial hidden state (:math:`h_{0}`).
+    learn_init: bool
+        If ``True``, initial hidden values are learned.
     """
     def __init__(self, incoming, memory_shape, num_units, num_reads,
                  W_in_to_hid=lasagne.init.GlorotUniform(),
