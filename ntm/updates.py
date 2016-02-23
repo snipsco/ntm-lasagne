@@ -5,21 +5,25 @@ import numpy as np
 from lasagne.updates import get_or_compute_grads
 from collections import OrderedDict
 
-def graves_rmsprop(loss_or_grads, params, chi=0.95, alpha=0.9, beta=1e-4, epsilon=1e-4):
-    """
-    Graves' rmsprop
-    http://arxiv.org/pdf/1308.0850v5.pdf, p.23
+def graves_rmsprop(loss_or_grads, params, learning_rate=1e-4, chi=0.95, alpha=0.9, epsilon=1e-4):
+    r"""
+    Alex Graves' RMSProp [1]_.
 
-    n_i = chi * n_i-1 + (1 - chi) * grad^2
-    g_i = chi * g_i-1 + (1 - chi) * grad
-    Delta_i = alpha * Delta_i-1 - beta * grad / 
-              sqrt(n_i - g_i^2 + epsilon)
-    w_i = w_i-1 + Delta_i
+    .. math ::
+        n_{i} &= \chi * n_i-1 + (1 - \chi) * grad^{2}\\
+        g_{i} &= \chi * g_i-1 + (1 - \chi) * grad\\
+        \Delta_{i} &= \alpha * Delta_{i-1} - learning_rate * grad /
+                  sqrt(n_{i} - g_{i}^{2} + \epsilon)\\
+        w_{i} &= w_{i-1} + \Delta_{i}
+
+    References
+    ----------
+    .. [1] Graves, Alex.
+           "Generating Sequences With Recurrent Neural Networks", p.23
+           arXiv:1308.0850
 
     """
     grads = get_or_compute_grads(loss_or_grads, params)
-    # Gradient clipping
-    grads = [T.clip(g, -10., 10.) for g in grads]
     updates = OrderedDict()
 
     for param, grad in zip(params, grads):

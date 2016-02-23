@@ -2,7 +2,9 @@ import theano.tensor as T
 
 
 class ClippedLinear(object):
-    """docstring for ClippedLinear"""
+    """
+    Clipped linear activation.
+    """
     def __init__(self, low=0., high=1.):
         super(ClippedLinear, self).__init__()
         self.low = low

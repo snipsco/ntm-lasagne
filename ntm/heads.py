@@ -160,7 +160,7 @@ class Head(Layer):
 
         # Content Adressing (3.3.1)
         beta_t = T.addbroadcast(beta_t, 1)
-        betaK = beta_t * similarities.cosine_similarity_batched(sign_t * k_t, M_t)
+        betaK = beta_t * similarities.cosine_similarity(sign_t * k_t, M_t)
         w_c = lasagne.nonlinearities.softmax(betaK)
 
         # Interpolation (3.3.2)

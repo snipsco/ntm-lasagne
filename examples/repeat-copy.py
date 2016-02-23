@@ -81,7 +81,7 @@ if __name__ == '__main__':
     loss = T.mean(lasagne.objectives.binary_crossentropy(pred, target_var))
 
     params = lasagne.layers.get_all_params(l_output, trainable=True)
-    # updates = graves_rmsprop(loss, params, beta=1e-3)
+    # updates = graves_rmsprop(loss, params, learning_rate=1e-3)
     updates = lasagne.updates.adam(loss, params, learning_rate=5e-4)
 
     train_fn = theano.function([input_var, target_var], loss, updates=updates)
