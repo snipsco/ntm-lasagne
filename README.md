@@ -2,8 +2,21 @@
 
 NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](http://deeplearning.net/software/theano/) using the [Lasagne](http://lasagne.readthedocs.org/) library.
 
+This library features:
+ - A Neural Turing Machine layer `NTMLayer`, where all its components (controller, heads, memory) are fully customizable.
+ - Two types of controllers: a feed-forward `DenseController` and a "vanilla" recurrent `RecurrentController`.
+ - A dashboard to visualize the inner mechanism of the NTM.
+ - Generators to sample examples from algorithmic tasks.
+
 ### Installation
-`TODO`
+
+This library is compatible with Python 2.7.8, and may be partly compatible with Python 3.x. To install this library, clone this repository and then run the `setup.py` script.
+
+```
+git clone https://github.com/snipsco/ntm-lasagne.git
+cd ntm-lasagne/
+python setup.py install
+```
 
 ### Example
 
