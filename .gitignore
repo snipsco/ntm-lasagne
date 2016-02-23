@@ -62,7 +62,6 @@ target/
 test/
 data/
 img/
-ntm_theano/
 notebooks/
 animation/
 models/learning_curves/
