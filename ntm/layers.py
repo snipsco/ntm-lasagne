@@ -1,9 +1,7 @@
 import theano
 import theano.tensor as T
-import numpy as np
 
 from lasagne.layers import Layer
-import lasagne.init
 
 from heads import ReadHead, WriteHead
 

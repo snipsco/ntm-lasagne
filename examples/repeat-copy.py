@@ -52,7 +52,7 @@ def model(input_var, batch_size=1, size=8, num_units=100, memory_shape=(128, 20)
 
 if __name__ == '__main__':
     # Define the input and expected output variable
-    input_var, target_var = T.dtensor3s('input', 'target')
+    input_var, target_var = T.tensor3s('input', 'target')
     # The generator to sample examples from
     generator = RepeatCopyTask(batch_size=1, max_iter=1000000, size=8, min_length=3, \
         max_length=5, max_repeats=5, unary=True, end_marker=True)

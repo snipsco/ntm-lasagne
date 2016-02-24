@@ -53,7 +53,7 @@ def model(input_var, batch_size=1, size=8, num_units=100, memory_shape=(128, 20)
 
 if __name__ == '__main__':
     # Define the input and expected output variable
-    input_var, target_var = T.dtensor3s('input', 'target')
+    input_var, target_var = T.tensor3s('input', 'target')
     # The generator to sample examples from
     generator = AssociativeRecallTask(batch_size=1, max_iter=1000000, size=8, max_num_items=6, \
         min_item_length=1, max_item_length=3)
