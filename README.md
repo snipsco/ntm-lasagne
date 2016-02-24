@@ -21,7 +21,7 @@ python setup.py install
 
 ### Example
 
-Here is minimal example to define a `NTMLayer`. For more detailed examples, check the [`examples` folder](examples/).
+Here is minimal example to define a `NTMLayer`
 
 ```python
 # Neural Turing Machine Layer
@@ -41,4 +41,10 @@ heads = [
         learn_init=False, name='read')
 ]
 l_ntm = NTMLayer(l_input, memory=memory, controller=controller, heads=heads)
+```
+
+For more detailed examples, check the [`examples` folder](examples/). If you would like to train a Neural Turing Machine on one of these examples, simply run the corresponding script, like
+
+```
+python examples/copy.py
 ```
