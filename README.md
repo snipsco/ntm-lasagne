@@ -1,6 +1,6 @@
 # NTM-Lasagne
 
-NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](http://deeplearning.net/software/theano/) using the [Lasagne](http://lasagne.readthedocs.org/) library.
+NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](http://deeplearning.net/software/theano/) using the [Lasagne](http://lasagne.readthedocs.org/) library. If you want to learn more about NTMs, checkout our [blog post](https://medium.com/snips-ai/ntm-lasagne-a-library-for-neural-turing-machines-in-lasagne-2cdce6837315#.63t84s5r5).
 
 This library features:
  - A Neural Turing Machine layer `NTMLayer`, where all its components (controller, heads, memory) are fully customizable.
@@ -50,4 +50,4 @@ For more detailed examples, check the [`examples` folder](examples/). If you wou
 PYTHONPATH=. python examples/task-copy.py
 ```
 
-and be patient while Theano compiles the code ;-) Note: unlucky initialisation of the parameters might lead to a diverging solution witness by NaNs.
+and be patient while Theano compiles the model ;-). Note: unlucky initialisation of the parameters might lead to a diverging solution witness by NaNs.
