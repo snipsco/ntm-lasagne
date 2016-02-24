@@ -10,11 +10,12 @@ This library features:
 
 ### Installation
 
-This library is compatible with Python 2.7.8, and may be partly compatible with Python 3.x. To install this library, clone this repository and then run the `setup.py` script.
+This library is compatible with Python 2.7.8, and may be partly compatible with Python 3.x. NTM-Lasagne requires the bleeding-edge versions of Lasagne and Theano. To install this library, clone this repository and then run the `setup.py` script.
 
 ```
 git clone https://github.com/snipsco/ntm-lasagne.git
 cd ntm-lasagne/
+pip install -r requirements.txt
 python setup.py install
 ```
 

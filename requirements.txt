@@ -1,0 +1,2 @@
+-e git://github.com/Theano/Theano.git#egg=Theano==0.8.git
+-e git://github.com/Lasagne/Lasagne.git#egg=Lasagne==0.2.git

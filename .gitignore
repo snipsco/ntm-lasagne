@@ -58,7 +58,6 @@ target/
 
 
 ## Temporary
-*.txt
 test/
 data/
 img/
