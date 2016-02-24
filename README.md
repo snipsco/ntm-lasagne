@@ -47,5 +47,7 @@ l_ntm = NTMLayer(l_input, memory=memory, controller=controller, heads=heads)
 For more detailed examples, check the [`examples` folder](examples/). If you would like to train a Neural Turing Machine on one of these examples, simply run the corresponding script, like
 
 ```
-python examples/copy.py
+PYTHONPATH=. python examples/task-copy.py
 ```
+
+and be patient while Theano compiles the code ;-) Note: unlucky initialisation of the parameters might lead to a diverging solution witness by NaNs.
