@@ -59,7 +59,7 @@ if __name__ == '__main__':
     l_output, l_ntm = model(input_var, batch_size=generator.batch_size,
         num_units=100, memory_shape=(128, 20))
     # The generated output variable and the loss function
-    pred_var = T.clip(lasagne.layers.get_output(l_output), 1e-10, 1. - 1e-10)
+    pred_var = T.clip(lasagne.layers.get_output(l_output), 1e-6, 1. - 1e-6)
     loss = T.mean(lasagne.objectives.binary_crossentropy(pred_var, target_var))
     # Create the update expressions
     params = lasagne.layers.get_all_params(l_output, trainable=True)
