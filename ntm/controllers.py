@@ -135,9 +135,8 @@ class DenseController(Controller):
         state = self.nonlinearity(activation)
         return state, state
 
-    @property
-    def outputs_info(self):
-        ones_vector = T.ones((self.input_shape[0], 1))
+    def outputs_info(self, batch_size):
+        ones_vector = T.ones((batch_size, 1))
         hid_init = T.dot(ones_vector, self.hid_init)
         hid_init = T.unbroadcast(hid_init, 0)
         return [hid_init, hid_init]
@@ -247,9 +246,8 @@ class RecurrentController(Controller):
         state = self.nonlinearity(activation)
         return state, state
 
-    @property
-    def outputs_info(self):
-        ones_vector = T.ones((self.input_shape[0], 1))
+    def outputs_info(self, batch_size):
+        ones_vector = T.ones((batch_size, 1))
         hid_init = T.dot(ones_vector, self.hid_init)
         hid_init = T.unbroadcast(hid_init, 0)
         return [hid_init, hid_init]

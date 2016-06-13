@@ -104,10 +104,10 @@ class NTMLayer(Layer):
 
             return [M_t, h_t, state_t] + write_weights_t + read_weights_t
 
-        memory_init = T.tile(self.memory.memory_init, (self.input_shape[0], 1, 1))
+        memory_init = T.tile(self.memory.memory_init, (input.shape[1], 1, 1))
         memory_init = T.unbroadcast(memory_init, 0)
 
-        ones_vector = T.ones((self.input_shape[0], 1))
+        ones_vector = T.ones((input.shape[1], 1))
         write_weights_init = [T.unbroadcast(T.dot(ones_vector, \
             head.weights_init), 0) for head in self.write_heads]
         read_weights_init = [T.unbroadcast(T.dot(ones_vector, \
@@ -120,7 +120,7 @@ class NTMLayer(Layer):
         hids, _ = theano.scan(
             fn=step,
             sequences=input,
-            outputs_info=[memory_init] + self.controller.outputs_info + \
+            outputs_info=[memory_init] + self.controller.outputs_info(input.shape[1]) + \
                          write_weights_init + read_weights_init,
             non_sequences=non_seqs,
             strict=True)
