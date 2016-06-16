@@ -360,6 +360,8 @@ class HeadCollection(object):
         return params
 
     def get_weights(self, h_t, w_tm1, M_t, **kwargs):
+        batch_size = self.heads[0].input_shape[0] # QKFIX: Get the size of the batches from the 1st head
+        num_heads = len(self.heads)
         k_t = self.nonlinearity_key(T.dot(h_t, self.W_hid_to_key) + self.b_hid_to_key)
         beta_t = self.nonlinearity_beta(T.dot(h_t, self.W_hid_to_beta) + self.b_hid_to_beta)
         g_t = self.nonlinearity_gate(T.dot(h_t, self.W_hid_to_gate) + self.b_hid_to_gate)
@@ -369,7 +371,7 @@ class HeadCollection(object):
             s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
         except ValueError:
             shift_activation_t = T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift
-            s_t = self.nonlinearity_shift(shift_activation_t.flatten(ndim=2))
+            s_t = self.nonlinearity_shift(shift_activation_t.reshape((batch_size * num_heads, self.num_shifts)))
             s_t = s_t.reshape(shift_activation_t.shape)
         gamma_t = self.nonlinearity_gamma(T.dot(h_t, self.W_hid_to_gamma) + self.b_hid_to_gamma)
 
@@ -384,8 +386,6 @@ class HeadCollection(object):
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
-        num_heads = len(self.heads)
-        batch_size = self.heads[0].input_shape[0] # QKFIX: Get the size of the batches from the 1st head
         w_g_padded = w_g.reshape((h_t.shape[0] * num_heads, self.memory_shape[0])).dimshuffle(0, 'x', 'x', 1)
         conv_filter = s_t.reshape((h_t.shape[0] * num_heads, self.num_shifts)).dimshuffle(0, 'x', 'x', 1)
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
@@ -395,7 +395,7 @@ class HeadCollection(object):
             filter_shape=(batch_size * num_heads, 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
-        w_tilde = convolution[:, 0, 0, :]
+        w_tilde = convolution[T.arange(batch_size * num_heads), T.arange(batch_size * num_heads), 0, :]
         w_tilde = w_tilde.reshape((h_t.shape[0], num_heads, self.memory_shape[0]))
 
         # Sharpening (3.3.2)
