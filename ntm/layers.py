@@ -82,15 +82,13 @@ class NTMLayer(Layer):
         memory_init = T.tile(self.memory.memory_init, (input.shape[1], 1, 1))
         memory_init = T.unbroadcast(memory_init, 0)
 
-        ones_vector = T.ones((input.shape[1], 1))
         write_weights_init = T.tile(self.write_heads.weights_init, (input.shape[1], 1, 1))
         write_weights_init = T.unbroadcast(write_weights_init, 0)
         read_weights_init = T.tile(self.read_heads.weights_init, (input.shape[1], 1, 1))
         read_weights_init = T.unbroadcast(read_weights_init, 0)
 
-        non_seqs = self.controller.get_params() + self.memory.get_params()
-        for head in self.heads:
-            non_seqs += head.get_params()
+        non_seqs = self.controller.get_params() + self.memory.get_params() + \
+            self.write_heads.get_params() + self.read_heads.get_params()
 
         hids, _ = theano.scan(
             fn=step,
@@ -102,8 +100,12 @@ class NTMLayer(Layer):
 
         # dimshuffle back to (n_batch, n_time_steps, n_features)
         if get_details:
-            hid_out = [hids[0].dimshuffle(1, 0, 2, 3)]
-            hid_out += [hid.dimshuffle(1, 0, 2) for hid in hids[1:]]
+            hid_out = [
+                hids[0].dimshuffle(1, 0, 2, 3),
+                hids[1].dimshuffle(1, 0, 2),
+                hids[2].dimshuffle(1, 0, 2),
+                hids[3].dimshuffle(1, 0, 2, 3),
+                hids[4].dimshuffle(1, 0, 2, 3)]
         else:
             if self.only_return_final:
                 hid_out = hids[1][-1]

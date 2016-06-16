@@ -104,6 +104,7 @@ class Head(Layer):
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
+        super(Head, self).__init__(controller, **kwargs)
 
         self.memory_shape = memory_shape
         self.name = kwargs.get('name', 'head')
@@ -128,6 +129,7 @@ class Head(Layer):
             name=self.name + '.gate.b', regularizable=False)
         self.nonlinearity_gate = nonlinearity_gate
         # Shift
+        self.num_shifts = num_shifts
         self.W_hid_to_shift = self.add_param(W_hid_to_shift, (1, self.input_shape[1], \
             self.num_shifts), name=self.name + '.shift.W')
         self.b_hid_to_shift = self.add_param(b_hid_to_shift, (1, self.num_shifts), \
@@ -254,8 +256,8 @@ class WriteHead(Head):
         self.nonlinearity_erase = nonlinearity_erase
         # Add
         self.W_hid_to_add = self.add_param(W_hid_to_add, (1, self.input_shape[1], \
-            1), name=self.name + '.add.W')
-        self.b_hid_to_add = self.add_param(b_hid_to_add, (1, 1), \
+            self.memory_shape[1]), name=self.name + '.add.W')
+        self.b_hid_to_add = self.add_param(b_hid_to_add, (1, self.memory_shape[1]), \
             name=self.name + '.add.b', regularizable=False)
         self.nonlinearity_add = nonlinearity_add
 
@@ -373,7 +375,12 @@ class HeadCollection(object):
         k_t = self.nonlinearity_key(T.dot(h_t, self.W_hid_to_key) + self.b_hid_to_key)
         beta_t = self.nonlinearity_beta(T.dot(h_t, self.W_hid_to_beta) + self.b_hid_to_beta)
         g_t = self.nonlinearity_gate(T.dot(h_t, self.W_hid_to_gate) + self.b_hid_to_gate)
-        s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
+        try:
+            s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
+        except ValueError:
+            shift_activation_t = T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift
+            s_t = self.nonlinearity_shift(shift_activation_t.flatten(ndim=2))
+            s_t = s_t.reshape(shift_activation_t.shape)
         gamma_t = self.nonlinearity_gamma(T.dot(h_t, self.W_hid_to_gamma) + self.b_hid_to_gamma)
 
         # Content Addressing (3.3.1)
@@ -383,7 +390,7 @@ class HeadCollection(object):
         w_c = w_c.reshape(betaK.shape)
 
         # Interpolation (3.3.2)
-        g_t  T.addbroadcast(g_t, 2)
+        g_t = T.addbroadcast(g_t, 2)
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
