@@ -7,7 +7,6 @@ from lasagne.layers import Layer, DenseLayer
 from lasagne.theano_extensions import padding
 import lasagne.init
 import lasagne.nonlinearities
-from lasagne.utils import create_param
 
 import similarities
 import nonlinearities
@@ -83,9 +82,6 @@ class Head(Layer):
         If ``True``, initial hidden values are learned.
     """
     def __init__(self, controller, num_shifts=3, memory_shape=(128, 20),
-                 W_hid_to_sign=None,
-                 b_hid_to_sign=lasagne.init.Constant(0.),
-                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
@@ -210,9 +206,6 @@ class WriteHead(Head):
         If ``True``, initial hidden values are learned.
     """
     def __init__(self, controller, num_shifts=3, memory_shape=(128, 20),
-                 W_hid_to_sign=None,
-                 b_hid_to_sign=lasagne.init.Constant(0.),
-                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
@@ -234,14 +227,10 @@ class WriteHead(Head):
                  W_hid_to_add=lasagne.init.GlorotUniform(),
                  b_hid_to_add=lasagne.init.Constant(0.),
                  nonlinearity_add=nonlinearities.ClippedLinear(low=0., high=1.),
-                 W_hid_to_sign_add=None,
-                 b_hid_to_sign_add=lasagne.init.Constant(0.),
-                 nonlinearity_sign_add=nonlinearities.ClippedLinear(low=-1., high=1.),
                  weights_init=init.OneHot(),
                  learn_init=False,
                  **kwargs):
         super(WriteHead, self).__init__(controller, num_shifts=num_shifts, memory_shape=memory_shape,
-            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
@@ -306,9 +295,6 @@ class ReadHead(Head):
         If ``True``, initial hidden values are learned.
     """
     def __init__(self, controller, num_shifts=3, memory_shape=(128, 20),
-                 W_hid_to_sign=None,
-                 b_hid_to_sign=lasagne.init.Constant(0.),
-                 nonlinearity_sign=nonlinearities.ClippedLinear(low=-1., high=1.),
                  W_hid_to_key=lasagne.init.GlorotUniform(),
                  b_hid_to_key=lasagne.init.Constant(0.),
                  nonlinearity_key=nonlinearities.ClippedLinear(low=0., high=1.),
@@ -328,7 +314,6 @@ class ReadHead(Head):
                  learn_init=False,
                  **kwargs):
         super(ReadHead, self).__init__(controller, num_shifts=num_shifts, memory_shape=memory_shape,
-            W_hid_to_sign=W_hid_to_sign, b_hid_to_sign=b_hid_to_sign, nonlinearity_sign=nonlinearity_sign,
             W_hid_to_key=W_hid_to_key, b_hid_to_key=b_hid_to_key, nonlinearity_key=nonlinearity_key,
             W_hid_to_beta=W_hid_to_beta, b_hid_to_beta=b_hid_to_beta, nonlinearity_beta=nonlinearity_beta,
             W_hid_to_gate=W_hid_to_gate, b_hid_to_gate=b_hid_to_gate, nonlinearity_gate=nonlinearity_gate,
@@ -341,6 +326,9 @@ class HeadCollection(object):
     """docstring for HeadCollection"""
     def __init__(self, heads):
         self.heads = heads
+        # QKFIX: Assume that all the heads have the same number of shifts and nonlinearities
+        self.memory_shape = self.heads[0].memory_shape
+        self.num_shifts = self.heads[0].num_shifts
         # Key
         self.W_hid_to_key = T.concatenate([head.W_hid_to_key for head in self.heads], axis=0)
         self.b_hid_to_key = T.concatenate([head.b_hid_to_key for head in self.heads], axis=0)
@@ -375,6 +363,8 @@ class HeadCollection(object):
         k_t = self.nonlinearity_key(T.dot(h_t, self.W_hid_to_key) + self.b_hid_to_key)
         beta_t = self.nonlinearity_beta(T.dot(h_t, self.W_hid_to_beta) + self.b_hid_to_beta)
         g_t = self.nonlinearity_gate(T.dot(h_t, self.W_hid_to_gate) + self.b_hid_to_gate)
+        # QKFIX: If the nonlinearity is softmax (which is usually the case), then the activations
+        # need to be reshaped (T.nnet.softmax only accepts 2D inputs)
         try:
             s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
         except ValueError:
@@ -394,22 +384,24 @@ class HeadCollection(object):
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
-        # TODO
-        # w_g_padded = w_g.dimshuffle(0, 'x', 'x', 1)
-        # conv_filter = s_t.dimshuffle(0, 'x', 'x', 1)
-        # pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
-        # w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
-        # convolution = T.nnet.conv2d(w_g_padded, conv_filter,
-        #     input_shape=(self.input_shape[0], 1, 1, self.memory_shape[0] + pad[0] + pad[1]),
-        #     filter_shape=(self.input_shape[0], 1, 1, self.num_shifts),
-        #     subsample=(1, 1),
-        #     border_mode='valid')
-        w_tilde = w_g
+        num_heads = len(self.heads)
+        batch_size = self.heads[0].input_shape[0] # QKFIX: Get the size of the batches from the 1st head
+        w_g_padded = w_g.reshape((h_t.shape[0] * num_heads, self.memory_shape[0])).dimshuffle(0, 'x', 'x', 1)
+        conv_filter = s_t.reshape((h_t.shape[0] * num_heads, self.num_shifts)).dimshuffle(0, 'x', 'x', 1)
+        pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
+        w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
+        convolution = T.nnet.conv2d(w_g_padded, conv_filter,
+            input_shape=(batch_size * num_heads, 1, 1, self.memory_shape[0] + pad[0] + pad[1]),
+            filter_shape=(batch_size * num_heads, 1, 1, self.num_shifts),
+            subsample=(1, 1),
+            border_mode='valid')
+        w_tilde = convolution[:, 0, 0, :]
+        w_tilde = w_tilde.reshape((h_t.shape[0], num_heads, self.memory_shape[0]))
 
         # Sharpening (3.3.2)
         gamma_t = T.addbroadcast(gamma_t, 2)
         w = T.pow(w_tilde + 1e-6, gamma_t)
-        w /= T.sum(w, axis=2)
+        w /= T.sum(w, axis=2).dimshuffle(0, 1, 'x')
 
         return w
 
