@@ -413,9 +413,8 @@ class ReadHeadCollection(HeadCollection):
         assert all([isinstance(head, ReadHead) for head in heads])
         super(ReadHeadCollection, self).__init__(heads=heads)
 
-    def read(self, h_t, w_tm1, M_t, **kwargs):
-        w_t = self.get_weights(h_t, w_tm1, M_t, **kwargs)
-        r_t = T.batched_dot(w_t, M_t)
+    def read(self, w_tm1, M_t, **kwargs):
+        r_t = T.batched_dot(w_tm1, M_t)
 
         return r_t.flatten(ndim=2)
 
@@ -434,13 +433,12 @@ class WriteHeadCollection(HeadCollection):
         self.b_hid_to_add = T.concatenate([head.b_hid_to_add for head in self.heads], axis=0)
         self.nonlinearity_add = self.heads[0].nonlinearity_add
 
-    def write(self, h_t, w_tm1, M_t, **kwargs):
-        w_t = self.get_weights(h_t, w_tm1, M_t, **kwargs)
-        e_t = self.nonlinearity_erase(T.dot(h_t, self.W_hid_to_erase) + self.b_hid_to_erase)
-        a_t = self.nonlinearity_add(T.dot(h_t, self.W_hid_to_add) + self.b_hid_to_add)
+    def write(self, h_tm1, w_tm1, M_tm1, **kwargs):
+        e_t = self.nonlinearity_erase(T.dot(h_tm1, self.W_hid_to_erase) + self.b_hid_to_erase)
+        a_t = self.nonlinearity_add(T.dot(h_tm1, self.W_hid_to_add) + self.b_hid_to_add)
         # Erase
-        M_tp1 = M_t * T.prod(1 - w_t.dimshuffle(0, 1, 2, 'x') * e_t.dimshuffle(0, 1, 'x', 2), axis=1)
+        M_tp1 = M_tm1 * T.prod(1 - w_tm1.dimshuffle(0, 1, 2, 'x') * e_t.dimshuffle(0, 1, 'x', 2), axis=1)
         # Add
-        M_tp1 += T.sum(w_t.dimshuffle(0, 1, 2, 'x') * a_t.dimshuffle(0, 1, 'x', 2), axis=1)
+        M_tp1 += T.sum(w_tm1.dimshuffle(0, 1, 2, 'x') * a_t.dimshuffle(0, 1, 'x', 2), axis=1)
 
         return M_tp1
