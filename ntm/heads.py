@@ -6,6 +6,7 @@ from lasagne.layers import Layer, DenseLayer
 from lasagne.theano_extensions import padding
 import lasagne.init
 import lasagne.nonlinearities
+from lasagne.utils import create_param
 
 import similarities
 import nonlinearities
@@ -403,3 +404,104 @@ class ReadHead(Head):
             W_hid_to_shift=W_hid_to_shift, b_hid_to_shift=b_hid_to_shift, nonlinearity_shift=nonlinearity_shift,
             W_hid_to_gamma=W_hid_to_gamma, b_hid_to_gamma=b_hid_to_gamma, nonlinearity_gamma=nonlinearity_gamma,
             weights_init=weights_init, learn_init=learn_init, **kwargs)
+
+
+class HeadCollection(object):
+    """docstring for HeadCollection"""
+    def __init__(self, heads):
+        super(HeadCollection, self).__init__()
+        self.heads = heads
+        # Key
+        self.W_hid_to_key = T.concatenate([head.W_hid_to_key for head in self.heads], axis=0)
+        self.b_hid_to_key = T.concatenate([head.b_hid_to_key for head in self.heads], axis=0)
+        self.nonlinearity_key = self.heads[0].nonlinearity_key
+        # Beta
+        self.W_hid_to_beta = T.concatenate([head.W_hid_to_beta for head in self.heads], axis=0)
+        self.b_hid_to_beta = T.concatenate([head.b_hid_to_beta for head in self.heads], axis=0)
+        self.nonlinearity_beta = self.heads[0].nonlinearity_beta
+        # Gate
+        self.W_hid_to_gate = T.concatenate([head.W_hid_to_gate for head in self.heads], axis=0)
+        self.b_hid_to_gate = T.concatenate([head.b_hid_to_gate for head in self.heads], axis=0)
+        self.nonlinearity_gate = self.heads[0].nonlinearity_gate
+        # Shift
+        self.W_hid_to_shift = T.concatenate([head.W_hid_to_shift for head in self.heads], axis=0)
+        self.b_hid_to_shift = T.concatenate([head.b_hid_to_shift for head in self.heads], axis=0)
+        self.nonlinearity_shift = self.heads[0].nonlinearity_shift
+        # Gamma
+        self.W_hid_to_gamma = T.concatenate([head.W_hid_to_gamma for head in self.heads], axis=0)
+        self.b_hid_to_gamma = T.concatenate([head.b_hid_to_gamma for head in self.heads], axis=0)
+        self.nonlinearity_gamma = self.heads[0].nonlinearity_gamma
+
+    def get_params(self, **tags):
+        params = []
+        for head in self.heads:
+            params += head.get_params(**tags)
+
+        return params
+
+    def get_weights(self, h_t, w_tm1, M_t, **kwargs):
+        k_t = self.nonlinearity_key(T.dot(h_t, self.W_hid_to_key) + self.b_hid_to_key)
+        beta_t = self.nonlinearity_beta(T.dot(h_t, self.W_hid_to_beta) + self.b_hid_to_beta)
+        g_t = self.nonlinearity_gate(T.dot(h_t, self.W_hid_to_gate) + self.b_hid_to_gate)
+        s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
+        gamma_t = self.nonlinearity_gamma(T.dot(h_t, self.W_hid_to_gamma) + self.b_hid_to_gamma)
+
+        # Content Addressing (3.3.1)
+        beta_t = T.addbroadcast(beta_t, 2)
+        betaK = beta_t * similarities.cosine_similarity(k_t, M_t)
+        w_c = lasagne.nonlinearities.softmax(betaK.flatten(ndim=2))
+        w_c = w_c.reshape(betaK.shape)
+
+        # Interpolation (3.3.2)
+        g_t  T.addbroadcast(g_t, 2)
+        w_g = g_t * w_c + (1. - g_t) * w_tm1
+
+        # Convolutional Shift (3.3.2)
+        # TODO
+        w_tilde = w_g
+
+        # Sharpening (3.3.2)
+        gamma_t = T.addbroadcast(gamma_t, 2)
+        w = T.pow(w_tilde + 1e-6, gamma_t)
+        w /= T.sum(w, axis=2)
+
+        return w
+
+
+class ReadHeadCollection(HeadCollection):
+    """docstring for ReadHeadCollection"""
+    def __init__(self, heads):
+        assert all([isinstance(head, ReadHead) for head in heads])
+        super(ReadHeadCollection, self).__init__(heads=heads)
+
+    def read(self, h_t, w_tm1, M_t, **kwargs):
+        w_t = self.get_weights(h_t, w_tm1, M_t, **kwargs)
+        r_t = T.batched_dot(w_t, M_t)
+
+        return r_t.flatten(ndim=2)
+
+
+class WriteHeadCollection(HeadCollection):
+    """docstring for WriteHeadCollection"""
+    def __init__(self, heads):
+        assert all([isinstance(head, WriteHead) for head in heads])
+        super(WriteHeadCollection, self).__init__(heads=heads)
+        # Erase
+        self.W_hid_to_erase = T.concatenate([head.W_hid_to_erase for head in self.heads], axis=0)
+        self.b_hid_to_erase = T.concatenate([head.b_hid_to_erase for head in self.heads], axis=0)
+        self.nonlinearity_erase = self.heads[0].nonlinearity_erase
+        # Add
+        self.W_hid_to_add = T.concatenate([head.W_hid_to_add for head in self.heads], axis=0)
+        self.b_hid_to_add = T.concatenate([head.b_hid_to_add for head in self.heads], axis=0)
+        self.nonlinearity_add = self.heads[0].nonlinearity_add
+
+    def write(self, h_t, w_tm1, M_t, **kwargs):
+        w_t = self.get_weights(h_t, w_tm1, M_t, **kwargs)
+        e_t = self.nonlinearity_erase(T.dot(h_t, self.W_hid_to_erase) + self.b_hid_to_erase)
+        a_t = self.nonlinearity_add(T.dot(h_t, self.W_hid_to_add) + self.b_hid_to_add)
+        # Erase
+        M_tp1 = M_t * T.prod(1 - w_t.dimshuffle(0, 1, 2, 'x') * e_t.dimshuffle(0, 1, 'x', 2), axis=1)
+        # Add
+        M_tp1 += T.sum(w_t.dimshuffle(0, 1, 2, 'x') * a_t.dimshuffle(0, 1, 'x', 2), axis=1)
+
+        return M_tp1
