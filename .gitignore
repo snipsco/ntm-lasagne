@@ -58,7 +58,7 @@ target/
 
 
 ## Temporary
-test/
+tmp/
 data/
 img/
 notebooks/
