@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 
 setup(name='NTM-Lasagne',
-    version='0.1.0',
+    version='0.2.0',
     description='Neural Turing Machines in Theano with Lasagne',
     author='Tristan Deleu',
     author_email='tristan.deleu@snips.ai',

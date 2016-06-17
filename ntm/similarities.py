@@ -9,28 +9,20 @@ def cosine_similarity(x, y, eps=1e-6):
 
     Parameters
     ----------
-    x: a 1D Theano variable
+    x: a 3D Theano variable
         Vector to compare to each row of the matrix y.
-    y: a 2D Theano variable
+    y: a 3D Theano variable
         Matrix to be compared to
     eps: float
         Precision of the operation (necessary for differentiability).
 
     Return
     ------
-    z: a 1D Theano variable
+    z: a 3D Theano variable
         A vector whose components are the cosine similarities
         between x and each row of y.
     """
-    def _cosine_similarity(x, y, eps=1e-6):
-        y = y.dimshuffle(1, 0)
-        z = T.dot(x, y)
-        z /= T.sqrt(T.sum(x * x) * T.sum(y * y, axis=0) + eps)
-
-        return z
-
-    def step(x_b, y_b):
-        return _cosine_similarity(x_b, y_b, eps)
-    z, _ = theano.map(step, sequences=[x, y])
+    z = T.batched_dot(x, y.dimshuffle(0, 2, 1))
+    z /= T.sqrt(T.sum(x * x, axis=2).dimshuffle(0, 1, 'x') * T.sum(y * y, axis=2).dimshuffle(0, 'x', 1) + eps)
 
     return z
