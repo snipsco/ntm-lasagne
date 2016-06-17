@@ -18,9 +18,6 @@ class Dashboard(object):
         self.markers = markers
         self.cmap = cmap
 
-        # Get only one sample
-        self.generator.batch_size = 1
-
     def sample(self, **params):
         params = self.generator.sample_params(**params)
         example_input, example_output = self.generator.sample(**params)
