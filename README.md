@@ -50,5 +50,7 @@ For more detailed examples, check the [`examples` folder](examples/). If you wou
 PYTHONPATH=. python examples/copy-task.py
 ```
 
-and be patient while Theano compiles the model ;-). Graph optimization is computationally intensive. If you are encountering suspiciously long complation times (more than a few minutes), you may need to increase the amount of memory allocated (if you run it on a Virtual Machine). Alternatively, turning off the swap may help for debugging (with `swapoff`/`swapon`).
+and be patient while Theano compiles the model ;-). Graph optimization is computationally intensive. If you are encountering suspiciously long compilation times (more than a few minutes), you may need to increase the amount of memory allocated (if you run it on a Virtual Machine). Alternatively, turning off the swap may help for debugging (with `swapoff`/`swapon`).
 Note: unlucky initialisation of the parameters might lead to a diverging solution (NaN scores).
+
+Alex Graves, Greg Wayne, Ivo Danihelka, *Neural Turing Machines*, [[arXiv](https://arxiv.org/abs/1410.5401)]
