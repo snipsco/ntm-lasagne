@@ -14,7 +14,7 @@ from ntm.memory import Memory
 
 def model(input_var, batch_size=1):
     l_input = InputLayer((batch_size, None, 8), input_var=input_var)
-    _, seqlen, _ = l_input.input_var.shape
+    batch_size_var, seqlen, _ = l_input.input_var.shape
 
     # Neural Turing Machine Layer
     memory = Memory((128, 20), name='memory')
@@ -29,7 +29,8 @@ def model(input_var, batch_size=1):
     # Output Layer
     l_output_reshape = ReshapeLayer(l_ntm, (-1, 100))
     l_output_dense = DenseLayer(l_output_reshape, num_units=8, name='dense')
-    l_output = ReshapeLayer(l_output_dense, (batch_size, seqlen, 8))
+    l_output = ReshapeLayer(l_output_dense, (batch_size_var if batch_size \
+        is None else batch_size, seqlen, 8))
 
     return l_output
 
@@ -55,3 +56,14 @@ def test_batch_size():
 
     assert example_output16.shape == (16, 30, 8)
     assert np.allclose(example_output16, example_output01, atol=1e-3)
+
+
+def test_batch_size_none():
+    input_var = T.tensor3('input')
+    l_output = model(input_var, batch_size=None)
+    posterior_fn = theano.function([input_var], get_output(l_output))
+
+    example_input = np.random.rand(16, 30, 8)
+    example_output = posterior_fn(example_input)
+
+    assert example_output.shape == (16, 30, 8)

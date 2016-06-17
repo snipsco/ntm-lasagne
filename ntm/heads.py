@@ -371,7 +371,7 @@ class HeadCollection(object):
             s_t = self.nonlinearity_shift(T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift)
         except ValueError:
             shift_activation_t = T.dot(h_t, self.W_hid_to_shift) + self.b_hid_to_shift
-            s_t = self.nonlinearity_shift(shift_activation_t.reshape((batch_size * num_heads, self.num_shifts)))
+            s_t = self.nonlinearity_shift(shift_activation_t.reshape((h_t.shape[0] * num_heads, self.num_shifts)))
             s_t = s_t.reshape(shift_activation_t.shape)
         gamma_t = self.nonlinearity_gamma(T.dot(h_t, self.W_hid_to_gamma) + self.b_hid_to_gamma)
 
@@ -391,11 +391,13 @@ class HeadCollection(object):
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
         w_g_padded = padding.pad(w_g_padded, [pad], batch_ndim=3)
         convolution = T.nnet.conv2d(w_g_padded, conv_filter,
-            input_shape=(batch_size * num_heads, 1, 1, self.memory_shape[0] + pad[0] + pad[1]),
-            filter_shape=(batch_size * num_heads, 1, 1, self.num_shifts),
+            input_shape=(None if batch_size is None else \
+                batch_size * num_heads, 1, 1, self.memory_shape[0] + pad[0] + pad[1]),
+            filter_shape=(None if batch_size is None else \
+                batch_size * num_heads, 1, 1, self.num_shifts),
             subsample=(1, 1),
             border_mode='valid')
-        w_tilde = convolution[T.arange(batch_size * num_heads), T.arange(batch_size * num_heads), 0, :]
+        w_tilde = convolution[T.arange(h_t.shape[0] * num_heads), T.arange(h_t.shape[0] * num_heads), 0, :]
         w_tilde = w_tilde.reshape((h_t.shape[0], num_heads, self.memory_shape[0]))
 
         # Sharpening (3.3.2)
