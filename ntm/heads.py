@@ -21,7 +21,6 @@ class Head(Layer):
     weight vector defined by
 
     .. math ::
-        \alpha_{t} &= \sigma_{alpha}(h_{t} W_{alpha} + b_{alpha})\\
         k_{t} &= \sigma_{key}(h_{t} W_{key} + b_{key})\\
         \beta_{t} &= \sigma_{beta}(h_{t} W_{beta} + b_{beta})\\
         g_{t} &= \sigma_{gate}(h_{t} W_{gate} + b_{gate})\\
@@ -29,7 +28,7 @@ class Head(Layer):
         \gamma_{t} &= \sigma_{gamma}(h_{t} W_{gamma} + b_{gamma})
 
     .. math ::
-        w_{t}^{c} &= softmax(\beta_{t} * K(\alpha_{t} * k_{t}, M_{t}))\\
+        w_{t}^{c} &= softmax(\beta_{t} * K(k_{t}, M_{t}))\\
         w_{t}^{g} &= g_{t} * w_{t}^{c} + (1 - g_{t}) * w_{t-1}\\
         \tilde{w}_{t} &= s_{t} \ast w_{t}^{g}\\
         w_{t} \propto \tilde{w}_{t}^{\gamma_{t}}
@@ -44,22 +43,17 @@ class Head(Layer):
         in [-1, 0, 1]).
     memory_shape: tuple
         Shape of the NTM's memory
-    W_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-        If callable, initializer of the weights for the parameter
-        :math:`\alpha_{t}`. If ``None``, the parameter :math:`\alpha_{t}` is
-        ignored (:math:`\alpha_{t} = 1`). Otherwise a matrix with shape
-        ``(controller.num_units, memory_shape[1])``.
-    b_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-        If callable, initializer of the biases for the parameter
-        :math:`\alpha_{t}`. If ``None``, no bias. Otherwise a matrix
-        with shape ``(memory_shape[1],)``.
-    nonlinearity_sign: callable or ``None``
-        The nonlinearity that is applied for parameter :math:`\alpha_{t}`. If
-        ``None``, the nonlinearity is ``identity``.
     W_hid_to_key: callable, Numpy array or Theano shared variable
+        If callable, initializer of the weights for the parameter
+        :math:`k_{t}`. Otherwise a matrix with shape
+        ``(controller.num_units, memory_shape[1])``.
     b_hid_to_key: callable, Numpy array, Theano shared variable or ``None``
+        If callable, initializer of the biases for the parameter
+        :math:`k_{t}`. If ``None``, no bias. Otherwise a matrix
+        with shape ``(memory_shape[1],)``.
     nonlinearity_key: callable or ``None``
-        Weights, biases and nonlinearity for parameter :math:`k_{t}`.
+        The nonlinearity that is applied for parameter :math:`k_{t}`. If
+        ``None``, the nonlinearity is ``identity``.
     W_hid_to_beta: callable, Numpy array or Theano shared variable
     b_hid_to_beta: callable, Numpy array, Theano shared variable or ``None``
     nonlinearity_beta: callable or ``None``
@@ -150,8 +144,7 @@ class WriteHead(Head):
     :math:`e_{t}` defined by
 
     .. math ::
-        \delta_{t} &= \sigma_{delta}(h_{t} W_{delta} + b_{delta})\\
-        a_{t} &= \delta_{t} * \sigma_{a}(h_{t} W_{a} + b_{a})
+        a_{t} &= \sigma_{a}(h_{t} W_{a} + b_{a})
         e_{t} &= \sigma_{e}(h_{t} W_{e} + b_{e})
 
     Parameters
@@ -164,10 +157,6 @@ class WriteHead(Head):
         in [-1, 0, 1]).
     memory_shape: tuple
         Shape of the NTM's memory
-    W_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-    b_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-    nonlinearity_sign: callable or ``None``
-        Weights, biases and nonlinearity for parameter :math:`\alpha_{t}`.
     W_hid_to_key: callable, Numpy array or Theano shared variable
     b_hid_to_key: callable, Numpy array, Theano shared variable or ``None``
     nonlinearity_key: callable or ``None``
@@ -196,10 +185,6 @@ class WriteHead(Head):
     b_hid_to_add: callable, Numpy array, Theano shared variable or ``None``
     nonlinearity_add: callable or ``None``
         Weights, biases and nonlinearity for parameter :math:`a_{t}`
-    W_hid_to_sign_add: callable, Numpy array, Theano shared variable, or ``None``
-    b_hid_to_sign_add: callable, Numpy array, Theano shared variable or ``None``
-    nonlinearity_sign_add: callable or ``None``
-        Weights, biases and nonlinearity for parameter :math:`\delta_{t}`
     weights_init: callable, Numpy array or Theano shared variable
         Initializer for the initial weight vector (:math:`w_{0}`).
     learn_init: bool
@@ -265,10 +250,6 @@ class ReadHead(Head):
         in [-1, 0, 1]).
     memory_shape: tuple
         Shape of the NTM's memory
-    W_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-    b_hid_to_sign: callable, Numpy array, Theano shared variable or ``None``
-    nonlinearity_sign: callable or ``None``
-        Weights, biases and nonlinearity for parameter :math:`\alpha_{t}`.
     W_hid_to_key: callable, Numpy array or Theano shared variable
     b_hid_to_key: callable, Numpy array, Theano shared variable or ``None``
     nonlinearity_key: callable or ``None``
@@ -323,7 +304,17 @@ class ReadHead(Head):
 
 
 class HeadCollection(object):
-    """docstring for HeadCollection"""
+    r"""
+    The base class :class:`HeadCollection` represents a generic collection 
+    of heads. Each head is an instance of :class:`Head`. This allows to 
+    process the heads simultaneously if they have the same type. This should 
+    be limited to internal uses only.
+
+    Parameters
+    ----------
+    heads: a list of :class:`Head` instances
+        List of the heads.
+    """
     def __init__(self, heads):
         self.heads = heads
         # QKFIX: Assume that all the heads have the same number of shifts and nonlinearities
@@ -409,7 +400,14 @@ class HeadCollection(object):
 
 
 class ReadHeadCollection(HeadCollection):
-    """docstring for ReadHeadCollection"""
+    r"""
+    Collection of read heads.
+
+    Parameters
+    ----------
+    heads: a list of :class:`ReadHead` instances
+        List of the read heads.
+    """
     def __init__(self, heads):
         assert all([isinstance(head, ReadHead) for head in heads])
         super(ReadHeadCollection, self).__init__(heads=heads)
@@ -421,7 +419,14 @@ class ReadHeadCollection(HeadCollection):
 
 
 class WriteHeadCollection(HeadCollection):
-    """docstring for WriteHeadCollection"""
+    r"""
+    Collection of write heads.
+
+    Parameters
+    ----------
+    heads: a list of :class:`WriteHead` instances
+        List of the write heads.
+    """
     def __init__(self, heads):
         assert all([isinstance(head, WriteHead) for head in heads])
         super(WriteHeadCollection, self).__init__(heads=heads)
