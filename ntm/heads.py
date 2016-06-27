@@ -377,6 +377,8 @@ class HeadCollection(object):
         w_g = g_t * w_c + (1. - g_t) * w_tm1
 
         # Convolutional Shift (3.3.2)
+        # NOTE: This library is using a flat (zero-padded) convolution instead of the circular
+        # convolution from the original paper. In practice, this change has a minimal impact.
         w_g_padded = w_g.reshape((h_t.shape[0] * num_heads, self.memory_shape[0])).dimshuffle(0, 'x', 'x', 1)
         conv_filter = s_t.reshape((h_t.shape[0] * num_heads, self.num_shifts)).dimshuffle(0, 'x', 'x', 1)
         pad = (self.num_shifts // 2, (self.num_shifts - 1) // 2)
