@@ -375,3 +375,37 @@ class ReversedCopyTask(Task):
             example_output[:, -1, -1] = 1
 
         return example_input, example_output
+
+class SortTask(Task):
+
+    def __init__(self, size, max_length, min_length=1, max_iter=None, \
+        batch_size=1, end_marker=False):
+        super(SortTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
+        self.size = size
+        self.min_length = min_length
+        self.max_length = max_length
+        self.end_marker = end_marker
+
+    def sample_params(self, length=None):
+        if length is None:
+            length = np.random.randint(self.min_length, self.max_length + 1)
+        return {'length': length}
+
+    def sample(self, length):
+        sequence = np.random.binomial(1, 0.5, (self.batch_size, length, self.size))
+        example_input = np.zeros((self.batch_size, 2 * length + 1 + self.end_marker, \
+            self.size + 1), dtype=theano.config.floatX)
+        example_output = np.zeros((self.batch_size, 2 * length + 1 + self.end_marker, \
+            self.size + 1), dtype=theano.config.floatX)
+        index = 0
+        reversed_sequence = np.empty(shape = sequence.shape)
+        for inner in sequence:
+            reversed_sequence[index] = inner[np.lexsort(inner.T[::-1])]
+            index += 1
+        example_input[:, :length, :self.size] = sequence
+        example_input[:, length, -1] = 1
+        example_output[:, length + 1:2 * length + 1, :self.size] = reversed_sequence
+        if self.end_marker:
+            example_output[:, -1, -1] = 1
+
+        return example_input, example_output
