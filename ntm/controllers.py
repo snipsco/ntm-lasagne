@@ -428,8 +428,8 @@ class LSTMController(Controller):
                                               **kwargs)
         self.nonlinearity = (lasagne.nonlinearities.identity if
                              nonlinearity is None else nonlinearity)
-        self.cell_state = self.add_param(cell_init, (1, num_units),
-            name='cell_state', regularizable=False, trainable=learn_init)
+        self.cell_init = self.add_param(cell_init, (1, num_units),
+            name='cell_init', regularizable=False, trainable=learn_init)
 
         def add_weight_and_bias_params(input_dim, W, b, name):
             return (self.add_param(W, (input_dim, self.num_units),
@@ -474,7 +474,7 @@ class LSTMController(Controller):
         self.W_hid_to_cell, self.b_hid_to_cell = add_weight_and_bias_params(self.num_units,
             W_hid_to_cell, b_hid_to_cell, name='hid_to_cell')
 
-    def step(self, input, reads, hidden, *args):
+    def step(self, input, reads, hidden, cell, *args):
         if input.ndim > 2:
             input = input.flatten(2)
         if reads.ndim > 2:
@@ -524,16 +524,17 @@ class LSTMController(Controller):
             activation += self.b_hid_to_cell.dimshuffle('x', 0)
         candidate_cell_state = lasagne.nonlinearities.tanh(activation)
         # New cell state and hidden state computation
-        self.cell_state = self.cell_state * forget_gate + candidate_cell_state * input_gate
-        state = lasagne.nonlinearities.tanh(self.cell_state) * output_gate
-        #state = input_gate + forget_gate + output_gate + candidate_cell_state
-        return state, state
+        cell_state = cell * forget_gate + candidate_cell_state * input_gate
+        state = lasagne.nonlinearities.tanh(cell_state) * output_gate
+        return state, cell_state
 
     def outputs_info(self, batch_size):
         ones_vector = T.ones((batch_size, 1))
         hid_init = T.dot(ones_vector, self.hid_init)
         hid_init = T.unbroadcast(hid_init, 0)
-        return [hid_init, hid_init]
+        cell_init = T.dot(ones_vector, self.cell_init)
+        cell_init = T.unbroadcast(cell_init, 0)
+        return [hid_init, cell_init]
 
 class GRUController(Controller):
     r"""
