@@ -62,7 +62,6 @@ if __name__ == '__main__':
     pred_var = T.clip(lasagne.layers.get_output(l_output), 1e-6, 1. - 1e-6)
     loss = T.mean(lasagne.objectives.binary_crossentropy(pred_var, target_var))
     # Create the update expressions
-    lasagne.layers.set_all_param_values(l_output, np.load("task-sort.npy"))
     params = lasagne.layers.get_all_params(l_output, trainable=True)
     updates = graves_rmsprop(loss, params, learning_rate=1e-3)
     # Compile the function for a training step, as well as the prediction function and
@@ -84,9 +83,6 @@ if __name__ == '__main__':
                 scores = []
     except KeyboardInterrupt:
         pass
-
-    # Save the serialized object parameters for future reuses
-    np.save("serialized_ntm_new", lasagne.layers.get_all_param_values(l_output))
 
     # Visualization
     markers = [

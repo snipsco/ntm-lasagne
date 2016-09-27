@@ -390,6 +390,8 @@ class LSTMController(Controller):
         ``(num_units,)`` (:math:`bc_{h}`).
     hid_init: callable, np.ndarray or theano.shared
         Initializer for the initial hidden state (:math:`h_{0}`).
+    cell_init: callable, np.ndarray or theano.shared
+        Initializer for the initial cell state (:math:`cell-state_{0}`).
     learn_init: bool
         If ``True``, initial hidden values are learned.
     """
