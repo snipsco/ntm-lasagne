@@ -44,7 +44,7 @@ def model(input_var, batch_size=1, size=8, num_units=100, memory_shape=(128, 20)
     # Output Layer
     l_output_reshape = ReshapeLayer(l_ntm, (-1, num_units))
     l_output_dense = DenseLayer(l_output_reshape, num_units=size + 1, nonlinearity=lasagne.nonlinearities.sigmoid, \
-        name='dense')
+        name='recurrent')
     l_output = ReshapeLayer(l_output_dense, (batch_size, seqlen, size + 1))
 
     return l_output, l_ntm

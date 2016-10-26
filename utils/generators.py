@@ -412,69 +412,82 @@ class SortTask(Task):
 
 class SumTask(Task):
 
-    def __init__(self, size, max_iter=None, batch_size=1, end_marker=False):
+    def __init__(self, max_length, min_length=1, max_iter=None, \
+                 batch_size=1, end_marker=False):
         super(SumTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
-        self.size = size + 1
+        self.min_length = min_length
+        self.max_length = max_length
         self.end_marker = end_marker
 
-    def sample_params(self):
-        return {}
+    def sample_params(self, length=None):
+        if length is None:
+            length = np.random.randint(self.min_length, self.max_length + 1)
+        return {'length': length}
 
-    def sample(self):
-        sequence = np.random.binomial(1, 0.5, (self.batch_size, 2, self.size - 1))
-        example_input = np.zeros((self.batch_size, 4 + self.end_marker, \
-            self.size + 1), dtype=theano.config.floatX)
-        example_output = np.zeros((self.batch_size, 4 + self.end_marker, \
-            self.size + 1), dtype=theano.config.floatX)
-        sum_array = np.zeros((self.batch_size, 1, self.size), \
+    def sample(self, length):
+        num1 = np.random.binomial(1, 0.5, (self.batch_size, 1, length))
+        num2 = np.random.binomial(1, 0.5, (self.batch_size, 1, length))
+        example_input = np.zeros((self.batch_size, 3 * length + 3 + self.end_marker, \
+            3), dtype=theano.config.floatX)
+        example_output = np.zeros((self.batch_size, 3 * length + 3 + self.end_marker, \
+            3), dtype=theano.config.floatX)
+        sum_array = np.zeros((self.batch_size, 1, length + 1), \
                              dtype=theano.config.floatX)
         for i in range(self.batch_size):
             rem = 0
-            for j in range(self.size - 2, -1, -1):
-                s = sequence[i][0][j] + sequence[i][1][j] + rem
-                sum_array[i][0][j + 1] = s % 2
+            for j in range(length):
+                s = num1[i][0][j] + num2[i][0][j] + rem
+                sum_array[i][0][j] = s % 2
                 rem = int(s) / 2
-            sum_array[i][0][0] = rem
-        example_input[:, :2, 1:self.size] = sequence
-        example_input[:, 2, -1] = 1
-        example_output[:, 3, :self.size] = sum_array
+            sum_array[i][0][length] = rem
+        example_input[:, :length, 0] = num1
+        example_input[:, length, 1] = 1
+        example_input[:, (length + 1):(2 * length + 1), 0] = num2
+        example_input[:, (2 * length + 1), 2] = 1
+        example_output[:, (2 * length + 2):(3 * length + 3), 0] = sum_array
         if self.end_marker:
-            example_output[:, -1, -1] = 1
+            example_output[:, (3 * length + 3), 2] = 1
 
         return example_input, example_output
 
-
 class MultiplicationTask(Task):
 
-    def __init__(self, size, max_iter=None, batch_size=1, end_marker=False):
+    def __init__(self, max_length, min_length=1, max_iter=None, \
+                 batch_size=1, end_marker=False):
         super(MultiplicationTask, self).__init__(max_iter=max_iter, batch_size=batch_size)
-        self.size = 2 * size
+        self.min_length = min_length
+        self.max_length = max_length
         self.end_marker = end_marker
 
-    def sample_params(self):
-        return {}
+    def sample_params(self, length=None):
+        if length is None:
+            length = np.random.randint(self.min_length, self.max_length + 1)
+        return {'length': length}
 
-    def sample(self):
-        sequence = np.random.binomial(1, 0.5, (self.batch_size, 2, self.size / 2))
-        example_input = np.zeros((self.batch_size, 4 + self.end_marker, \
-            self.size + 1), dtype=theano.config.floatX)
-        example_output = np.zeros((self.batch_size, 4 + self.end_marker, \
-            self.size + 1), dtype=theano.config.floatX)
-        mul_array = np.zeros((self.batch_size, 1, self.size), \
+    def sample(self, length):
+        num1 = np.random.binomial(1, 0.5, (self.batch_size, 1, length))
+        num2 = np.random.binomial(1, 0.5, (self.batch_size, 1, length))
+        example_input = np.zeros((self.batch_size, 4 * length + 2 + self.end_marker, \
+            3), dtype=theano.config.floatX)
+        example_output = np.zeros((self.batch_size, 4 * length + 2 + self.end_marker, \
+            3), dtype=theano.config.floatX)
+        mul_array = np.zeros((self.batch_size, 1, 2 * length), \
                              dtype=theano.config.floatX)
         for i in range(self.batch_size):
-            for k in range(self.size - 1, -1, -1):
-                if sequence[i][1][k] == 1:
+            for k in range(length):
+                if num2[i][0][k] == 1:
                     rem = 0
-                    for j in range((self.size / 2) - 1, -1, -1):
-                        s = sequence[i][0][j] + mul_array[i][0][j + k + 1] + rem
-                        mul_array[i][0][j + k + 1] = s % 2
+                    for j in range(length):
+                        s = num1[i][0][j] + mul_array[i][0][j + k] + rem
+                        mul_array[i][0][j + k] = s % 2
                         rem = int(s) / 2
-                    mul_array[i][0][k] = rem
-        example_input[:, :2, (self.size / 2):self.size] = sequence
-        example_input[:, 2, -1] = 1
-        example_output[:, 3, :self.size] = mul_array
+                    mul_array[i][0][k + length] = rem
+        example_input[:, :length, 0] = num1
+        example_input[:, length, 1] = 1
+        example_input[:, (length + 1):(2 * length + 1), 0] = num2
+        example_input[:, (2 * length + 1), 2] = 1
+        example_output[:, (2 * length + 2):(4 * length + 2), 0] = mul_array
         if self.end_marker:
-            example_output[:, -1, -1] = 1
+            example_output[:, (4 * length + 2), 2] = 1
 
         return example_input, example_output
