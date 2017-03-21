@@ -1,5 +1,4 @@
 # NTM-Lasagne
-
 NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](http://deeplearning.net/software/theano/) using the [Lasagne](http://lasagne.readthedocs.org/) library. If you want to learn more about NTMs, check out our [blog post](https://medium.com/snips-ai/ntm-lasagne-a-library-for-neural-turing-machines-in-lasagne-2cdce6837315#.63t84s5r5).
 
 This library features:
@@ -8,20 +7,21 @@ This library features:
  - A dashboard to visualize the inner mechanism of the NTM.
  - Generators to sample examples from algorithmic tasks.
 
-### Installation
-
-This library is compatible with Python 2.7.8, and may be partly compatible with Python 3.x. NTM-Lasagne requires the bleeding-edge versions of Lasagne and Theano. Check the [Lasagne installation instructions](http://lasagne.readthedocs.org/en/latest/user/installation.html#bleeding-edge-version) for details, or install them with `pip install -r requirements.txt`.
-To install this library, clone this repository and then run the `setup.py` script.
-
+## Getting started
+To avoid any conflict with your existing Python setup, and to keep this project self-contained, it is suggested to work in a virtual environment with [`virtualenv`](http://docs.python-guide.org/en/latest/dev/virtualenvs/). To install `virtualenv`:
+```bash
+sudo pip install --upgrade virtualenv
 ```
-git clone https://github.com/snipsco/ntm-lasagne.git
-cd ntm-lasagne/
+
+Create a virtual environment called `venv`, activate it and install the requirements given by `requirements.txt`. NTM-Lasagne requires the bleeding-edge version, check the [Lasagne installation instructions](http://lasagne.readthedocs.org/en/latest/user/installation.html#bleeding-edge-version) for details. The latest version of [Lasagne](https://github.com/Lasagne/Lasagne/) is included in the `requirements.txt`.
+```bash
+virtualenv venv
+source venv/bin/activate
 pip install -r requirements.txt
-python setup.py install
+pip install .
 ```
 
-### Example
-
+## Example
 Here is minimal example to define a `NTMLayer`
 
 ```python
@@ -50,7 +50,16 @@ For more detailed examples, check the [`examples` folder](examples/). If you wou
 PYTHONPATH=. python examples/copy-task.py
 ```
 
-and be patient while Theano compiles the model ;-). Graph optimization is computationally intensive. If you are encountering suspiciously long compilation times (more than a few minutes), you may need to increase the amount of memory allocated (if you run it on a Virtual Machine). Alternatively, turning off the swap may help for debugging (with `swapoff`/`swapon`).
-Note: unlucky initialisation of the parameters might lead to a diverging solution (NaN scores).
+## Tests
+This projects has a few basic tests. To run these tests, you can run the `py.test` on the project folder
+```bash
+venv/bin/py.test ntm -vv
+```
 
+## Known issues
+Graph optimization is computationally intensive. If you are encountering suspiciously long compilation times (more than a few minutes), you may need to increase the amount of memory allocated (if you run it on a Virtual Machine). Alternatively, turning off the swap may help for debugging (with `swapoff`/`swapon`).
+
+Note: Unlucky initialisation of the parameters might lead to a diverging solution (`NaN` scores).
+
+## Paper
 Alex Graves, Greg Wayne, Ivo Danihelka, *Neural Turing Machines*, [[arXiv](https://arxiv.org/abs/1410.5401)]
