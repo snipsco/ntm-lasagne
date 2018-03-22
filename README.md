@@ -1,4 +1,7 @@
 # NTM-Lasagne
+
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/snipsco/ntm-lasagne/master/LICENSE)
+
 NTM-Lasagne is a library to create Neural Turing Machines (NTMs) in [Theano](http://deeplearning.net/software/theano/) using the [Lasagne](http://lasagne.readthedocs.org/) library. If you want to learn more about NTMs, check out our [blog post](https://medium.com/snips-ai/ntm-lasagne-a-library-for-neural-turing-machines-in-lasagne-2cdce6837315#.63t84s5r5).
 
 This library features:
