@@ -66,3 +66,11 @@ Note: Unlucky initialisation of the parameters might lead to a diverging solutio
 
 ## Paper
 Alex Graves, Greg Wayne, Ivo Danihelka, *Neural Turing Machines*, [[arXiv](https://arxiv.org/abs/1410.5401)]
+
+## Contributing
+
+Please see the [Contribution Guidelines](https://github.com/snipsco/ntm-lasagne/blob/master/CONTRIBUTING.md).
+
+## Copyright
+
+This skill is provided by [Snips](https://www.snips.ai) as Open Source software. See [LICENSE](https://github.com/snipsco/ntm-lasagne/blob/master/LICENSE) for more information.
