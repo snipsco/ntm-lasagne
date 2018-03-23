@@ -73,4 +73,4 @@ Please see the [Contribution Guidelines](https://github.com/snipsco/ntm-lasagne/
 
 ## Copyright
 
-This skill is provided by [Snips](https://www.snips.ai) as Open Source software. See [LICENSE](https://github.com/snipsco/ntm-lasagne/blob/master/LICENSE) for more information.
+This library is provided by [Snips](https://www.snips.ai) as Open Source software. See [LICENSE](https://github.com/snipsco/ntm-lasagne/blob/master/LICENSE) for more information.
