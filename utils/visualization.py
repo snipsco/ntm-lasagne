@@ -34,14 +34,16 @@ class Dashboard(object):
             size=9)
 
         ax1 = plt.subplot2grid(subplot_shape, (0, 2))
-        ax1.imshow(example_input[0].T, interpolation='nearest', cmap=self.cmap)
+        ax1.imshow(example_input[0].T, interpolation='nearest', cmap=self.cmap,
+            vmin=0.0, vmax=1.0)
         ax1.set_title('Input')
         ax1.title.set_font_properties(title_props)
         ax1.get_xaxis().set_visible(False)
         ax1.get_yaxis().set_visible(False)
 
         ax2 = plt.subplot2grid(subplot_shape, (1, 2))
-        ax2.imshow(example_output[0].T, interpolation='nearest', cmap=self.cmap)
+        ax2.imshow(example_output[0].T, interpolation='nearest', cmap=self.cmap,
+            vmin=0.0, vmax=1.0)
         ax2.set_title('Output')
         ax2.title.set_font_properties(title_props)
         ax2.get_xaxis().set_visible(False)
@@ -49,7 +51,7 @@ class Dashboard(object):
 
         ax3 = plt.subplot2grid(subplot_shape, (2, 2))
         ax3.imshow(example_prediction[0].T, interpolation='nearest', \
-            cmap=self.cmap)
+            cmap=self.cmap, vmin=0.0, vmax=1.0)
         ax3.set_title('Prediction')
         ax3.title.set_font_properties(title_props)
         ax3.get_xaxis().set_visible(False)
@@ -58,7 +60,7 @@ class Dashboard(object):
         if self.ntm_layer_fn is not None:
             ax4 = plt.subplot2grid(subplot_shape, (0, 0), rowspan=3)
             ax4.imshow(example_ntm[3][0,:,0].T, interpolation='nearest', \
-                cmap=self.cmap)
+                cmap=self.cmap, vmin=0.0, vmax=1.0)
             ax4.set_title('Write Weights')
             ax4.title.set_font_properties(title_props)
             ax4.get_xaxis().set_visible(False)
@@ -73,7 +75,7 @@ class Dashboard(object):
 
             ax5 = plt.subplot2grid(subplot_shape, (0, 1), rowspan=3)
             ax5.imshow(example_ntm[4][0,:,0].T, interpolation='nearest', \
-                cmap=self.cmap)
+                cmap=self.cmap, vmin=0.0, vmax=1.0)
             ax5.set_title('Read Weights')
             ax5.title.set_font_properties(title_props)
             ax5.get_xaxis().set_visible(False)
